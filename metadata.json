@@ -1,0 +1,6 @@
+{
+  "name": "Newaz Land Record Extractor",
+  "description": "Offline, evidence-preserving extraction of Bangladesh land records (CS, SA, RS, BRS, Porcha, Deeds, Mutations) with Bengali & English OCR.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

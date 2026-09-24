@@ -1,0 +1,95 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Soft shadow for document -->
+    <path
+        android:fillColor="#33000000"
+        android:pathData="M29,23 h44 c3.3,0 6,2.7 6,6 v52 c0,3.3 -2.7,6 -6,6 h-44 c-3.3,0 -6,-2.7 -6,-6 v-52 c0,-3.3 2.7,-6 6,-6 z" />
+
+    <!-- Document Body (Khatian / Land Record Sheet) -->
+    <path
+        android:fillColor="#FDFBF7"
+        android:pathData="M27,21 h44 c3.3,0 6,2.7 6,6 v52 c0,3.3 -2.7,6 -6,6 h-44 c-3.3,0 -6,-2.7 -6,-6 v-52 c0,-3.3 2.7,-6 6,-6 z" />
+
+    <!-- Top Header Banner (Government / Record Header) -->
+    <path
+        android:fillColor="#1B5E3C"
+        android:pathData="M27,21 h44 c3.3,0 6,2.7 6,6 v8 h-56 v-8 c0,-3.3 2.7,-6 6,-6 z" />
+
+    <!-- Header Emblem Dot -->
+    <path
+        android:fillColor="#E0AA3E"
+        android:pathData="M49,28 a3,3 0 1,0 6,0 a3,3 0 1,0 -6,0" />
+
+    <!-- Document Text Lines (Simulating Bengali Record Sections) -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#C5D1C9"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M31,40 h26 M31,46 h36 M31,52 h30 M31,58 h20" />
+
+    <!-- Cadastral Plot Boundary Box inside document -->
+    <path
+        android:fillColor="#102E7D32"
+        android:strokeColor="#388E3C"
+        android:strokeWidth="1.2"
+        android:pathData="M52,56 l14,-4 l7,12 l-12,8 z" />
+
+    <!-- Official Red / Gold Verification Stamp -->
+    <path
+        android:fillColor="#C62828"
+        android:pathData="M32,67 a6,6 0 1,0 12,0 a6,6 0 1,0 -12,0" />
+    <path
+        android:fillColor="#FFFFFF"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="0.5"
+        android:pathData="M35,67 l2.5,2.5 l5,-5" />
+
+    <!-- Optical Scan Line & Loupe/Lens Target Overlay -->
+    <!-- Scanning Beam Line -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#00E676"
+        android:strokeWidth="2"
+        android:strokeLineCap="round"
+        android:pathData="M23,50 L77,50" />
+
+    <!-- Magnifying Glass Lens Ring -->
+    <path
+        android:fillColor="#1500E676"
+        android:strokeColor="#004D40"
+        android:strokeWidth="3.5"
+        android:pathData="M64,55 a15,15 0 1,0 30,0 a15,15 0 1,0 -30,0" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#00E676"
+        android:strokeWidth="1.5"
+        android:pathData="M65.5,55 a13.5,13.5 0 1,0 27,0 a13.5,13.5 0 1,0 -27,0" />
+
+    <!-- Loupe Handle -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#004D40"
+        android:strokeWidth="4.5"
+        android:strokeLineCap="round"
+        android:pathData="M89,66 L97,75" />
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#E0AA3E"
+        android:strokeWidth="2.5"
+        android:strokeLineCap="round"
+        android:pathData="M90,67 L96,74" />
+
+    <!-- Crosshair reticle inside lens -->
+    <path
+        android:fillColor="#00000000"
+        android:strokeColor="#00B0FF"
+        android:strokeWidth="1.2"
+        android:strokeLineCap="round"
+        android:pathData="M79,45 L79,49 M79,61 L79,65 M69,55 L73,55 M85,55 L89,55" />
+</vector>
