@@ -38,9 +38,12 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.UploadFile
 import androidx.compose.material.icons.filled.Warning
@@ -103,7 +106,12 @@ fun HomeScreen(
     onNavigateToCamera: () -> Unit,
     onNavigateToSafImport: () -> Unit,
     onNavigateToTesseract: () -> Unit,
-    onNavigateToCapturedRecords: (() -> Unit)? = null
+    onNavigateToCapturedRecords: (() -> Unit)? = null,
+    onNavigateToGallery: (() -> Unit)? = null,
+    onNavigateToBulkUpload: (() -> Unit)? = null,
+    onNavigateToWarishMatcher: (() -> Unit)? = null,
+    onNavigateToHcr: (() -> Unit)? = null,
+    onNavigateToAtlas: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -142,6 +150,42 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    if (onNavigateToWarishMatcher != null) {
+                        IconButton(
+                            onClick = onNavigateToWarishMatcher,
+                            modifier = Modifier.testTag("btn_warish_matcher_nav")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = "ওয়ারিশনামা ও মৌজা নকশা",
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    }
+                    if (onNavigateToBulkUpload != null) {
+                        IconButton(
+                            onClick = onNavigateToBulkUpload,
+                            modifier = Modifier.testTag("btn_bulk_upload_nav")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.UploadFile,
+                                contentDescription = "বাল্ক আপলোড কিউ",
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    }
+                    if (onNavigateToGallery != null) {
+                        IconButton(
+                            onClick = onNavigateToGallery,
+                            modifier = Modifier.testTag("btn_gallery_view")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.GridView,
+                                contentDescription = "ইমেজ গ্যালারি",
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    }
                     if (onNavigateToCapturedRecords != null) {
                         IconButton(
                             onClick = onNavigateToCapturedRecords,
@@ -270,19 +314,19 @@ fun HomeScreen(
             ) {
                 MetricCard(
                     title = "মোট নথি",
-                    count = uiState.totalCount.toString(),
+                    count = com.example.data.model.BengaliNumberUtils.toBengaliDigits(uiState.totalCount.toLong()),
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.weight(1f)
                 )
                 MetricCard(
                     title = "যাচাইকৃত",
-                    count = uiState.verifiedCount.toString(),
+                    count = com.example.data.model.BengaliNumberUtils.toBengaliDigits(uiState.verifiedCount.toLong()),
                     color = StatusVerified,
                     modifier = Modifier.weight(1f)
                 )
                 MetricCard(
                     title = "০-বাইট ত্রুটি",
-                    count = uiState.zeroByteCount.toString(),
+                    count = com.example.data.model.BengaliNumberUtils.toBengaliDigits(uiState.zeroByteCount.toLong()),
                     color = if (uiState.zeroByteCount > 0) StatusUncertain else MaterialTheme.colorScheme.outline,
                     modifier = Modifier.weight(1f)
                 )
@@ -337,6 +381,177 @@ fun HomeScreen(
                         Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(15.dp))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("CSV এক্সপোর্ট", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                    }
+                }
+            }
+
+            // Module 03: Warish Matcher & Cadastral Map Highlights Card
+            if (onNavigateToWarishMatcher != null) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 4.dp)
+                        .testTag("card_warish_matcher_banner"),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Share,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "ওয়ারিশনামা ও মৌজা নকশা মেলানো (মডিউল ০৩)",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                                )
+                                Text(
+                                    text = "ওয়ারিশদের হিস্যা যাচাই ও মৌজা নকশায় মিলকৃত দাগ হাইলাইট",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.85f)
+                                )
+                            }
+                        }
+                        Button(
+                            onClick = onNavigateToWarishMatcher,
+                            modifier = Modifier.testTag("btn_open_warish_matcher"),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("ম্যাচার খুলুন", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            // Module 04: Bangla HCR & Marginalia Review Banner
+            if (onNavigateToHcr != null) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 4.dp)
+                        .testTag("card_hcr_banner"),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Description,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.secondary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "হস্তলিপি ও মার্জিনাল নোট (মডিউল ০৪ - HCR)",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer
+                                )
+                                Text(
+                                    text = "ঐতিহাসিক বাংলা হস্তলিপি ও সিলমোহরের নির্ভুল পাঠোদ্ধার",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.85f)
+                                )
+                            }
+                        }
+                        Button(
+                            onClick = onNavigateToHcr,
+                            modifier = Modifier.testTag("btn_open_hcr"),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("HCR খুলুন", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+
+            // Module 13: Historical Property Atlas Banner
+            if (onNavigateToAtlas != null) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 4.dp)
+                        .testTag("card_atlas_banner"),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.tertiaryContainer.copy(alpha = 0.6f)
+                    )
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Map,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.tertiary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Column {
+                                Text(
+                                    text = "ঐতিহাসিক প্রপার্টি অ্যাটলাস (মডিউল ১৩)",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer
+                                )
+                                Text(
+                                    text = "CS ➔ SA ➔ RS ➔ BS ধারাবাহিক স্বত্ব ও দাগ বিভাজন",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontSize = 11.sp,
+                                    color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.85f)
+                                )
+                            }
+                        }
+                        Button(
+                            onClick = onNavigateToAtlas,
+                            modifier = Modifier.testTag("btn_open_atlas"),
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text("অ্যাটলাস", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                        }
                     }
                 }
             }

@@ -1,0 +1,47 @@
+name: Production Release Pipeline
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    name: Build & Publish Release Artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'gradle'
+
+      - name: Build Standalone APK
+        run: ./gradlew :app:assembleDebug --no-daemon
+
+      - name: Package Forensic Docs & Schema
+        run: |
+          mkdir -p release-bundle
+          cp app/build/outputs/apk/debug/*.apk release-bundle/LR-Newaz-v1.0-release.apk || cp *.apk release-bundle/ || true
+          cp docs/ARCHITECTURE.md release-bundle/
+          cp README.md release-bundle/
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: release-bundle/*
+          body: |
+            ## LR-NewazTpoybf Version 1.0 Production Release
+            - Zero-Data-Loss Forensic Land Record Intelligence
+            - Bangla OCR & Historical HCR Handwriting Recognition
+            - Cadastral Survey Map (CS, SA, RS, BS) Polygon Matching
+            - Warishnama Inheritance Farayez Balance & Evidence Classification
+            - Complete Offline Android Execution (SQLite / Room)
+            - Multi-Format Export (Excel, CSV, PDF, JSON, ZIP)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

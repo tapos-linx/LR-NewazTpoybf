@@ -122,6 +122,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun deleteDocuments(ids: Collection<String>) {
+        viewModelScope.launch {
+            ids.forEach { id ->
+                repository.deleteDocument(id)
+            }
+        }
+    }
+
     fun importDiscoveredFile(discovered: DiscoveredFile, onComplete: (String) -> Unit) {
         viewModelScope.launch {
             _isBatchProcessing.value = true

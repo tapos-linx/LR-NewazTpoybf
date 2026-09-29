@@ -48,9 +48,14 @@ val OnSurfaceDark = Color(0xFFE1E4DF)
 val SurfaceVariantDark = Color(0xFF424944)
 val OnSurfaceVariantDark = Color(0xFFC1C9C3)
 
-// Status Colors
+// Status Colors & Evidence Tiers
 val StatusVerified = Color(0xFF16A34A)
+val StatusCorroborated = Color(0xFF2563EB)
 val StatusProbable = Color(0xFFD97706)
+val StatusPossible = Color(0xFF7C3AED)
+val StatusRecordGap = Color(0xFFE11D48)
+val StatusContradictory = Color(0xFFDC2626)
 val StatusUncertain = Color(0xFFDC2626)
 val StatusInfo = Color(0xFF2563EB)
 val ParchmentPaper = Color(0xFFFAF7F0)
+val SepiaBrown = Color(0xFF5D4037)

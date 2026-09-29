@@ -85,4 +85,9 @@ object BengaliNumberUtils {
 
         return 0.0
     }
+
+    fun formatTimestampToBengaliDate(timestamp: Long): String {
+        val sdf = java.text.SimpleDateFormat("dd/MM/yyyy", Locale.US)
+        return toBengaliDigits(sdf.format(java.util.Date(timestamp)))
+    }
 }

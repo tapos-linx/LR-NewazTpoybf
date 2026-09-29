@@ -14,6 +14,9 @@ interface LandDocumentDao {
     @Query("SELECT * FROM land_documents ORDER BY createdAt DESC")
     fun getAllDocuments(): Flow<List<LandDocumentEntity>>
 
+    @Query("SELECT * FROM land_documents ORDER BY createdAt DESC")
+    suspend fun getAllDocumentsList(): List<LandDocumentEntity>
+
     @Query("SELECT * FROM land_documents WHERE id = :id LIMIT 1")
     fun getDocumentById(id: String): Flow<LandDocumentEntity?>
 

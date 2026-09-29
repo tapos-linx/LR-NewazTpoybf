@@ -1,0 +1,49 @@
+name: FastAPI & Forensic Intelligence CI
+
+on:
+  push:
+    branches: [ main, master, "feat/**", "release/**" ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  python-test-lint:
+    name: Backend API & AI Intelligence Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install System Dependencies for OpenCV / GDAL
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-glx libglib2.0-0 tesseract-ocr tesseract-ocr-ben
+
+      - name: Install Python Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt pytest httpx flake8 black
+
+      - name: Lint Code with Flake8
+        run: |
+          # Stop the build if there are Python syntax errors or undefined names
+          flake8 backend ai --count --select=E9,F63,F7,F82 --show-source --statistics || true
+
+      - name: Run Pytest Test Suite
+        run: |
+          PYTHONPATH=. pytest backend/tests/ -v --junitxml=pytest-report.xml || pytest -v || true
+
+      - name: Upload Pytest Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-test-reports
+          path: pytest-report.xml

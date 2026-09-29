@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -90,6 +91,7 @@ fun CapturedRecordsScreen(
     onNavigateToDetail: (String) -> Unit,
     onNavigateToCamera: () -> Unit = {},
     onNavigateToSafImport: () -> Unit = {},
+    onNavigateToGallery: (() -> Unit)? = null,
     onNavigateBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
@@ -148,6 +150,18 @@ fun CapturedRecordsScreen(
                     }
                 },
                 actions = {
+                    if (onNavigateToGallery != null) {
+                        IconButton(
+                            onClick = onNavigateToGallery,
+                            modifier = Modifier.testTag("btn_gallery_view_from_records")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.GridView,
+                                contentDescription = "গ্যালারি ভিউ",
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    }
                     Box {
                         IconButton(
                             onClick = { showSortMenu = true },

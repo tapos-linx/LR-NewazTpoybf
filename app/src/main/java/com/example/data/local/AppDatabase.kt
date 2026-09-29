@@ -4,23 +4,37 @@ import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import com.example.data.local.dao.DocumentPageDao
-import com.example.data.local.dao.LandDocumentDao
-import com.example.data.local.entity.DocumentPageEntity
-import com.example.data.local.entity.LandDocumentEntity
+import com.example.data.local.dao.*
+import com.example.data.local.entity.*
 
 @Database(
     entities = [
         LandDocumentEntity::class,
-        DocumentPageEntity::class
+        DocumentPageEntity::class,
+        OcrBlockEntity::class,
+        HcrRecordEntity::class,
+        CadastralMapEntity::class,
+        CadastralPlotEntity::class,
+        LandOwnerEntity::class,
+        EvidenceAuditEntity::class,
+        BatchJobEntity::class,
+        SearchIndexEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
 
     abstract fun landDocumentDao(): LandDocumentDao
     abstract fun documentPageDao(): DocumentPageDao
+    abstract fun ocrBlockDao(): OcrBlockDao
+    abstract fun hcrRecordDao(): HcrRecordDao
+    abstract fun cadastralMapDao(): CadastralMapDao
+    abstract fun cadastralPlotDao(): CadastralPlotDao
+    abstract fun landOwnerDao(): LandOwnerDao
+    abstract fun evidenceAuditDao(): EvidenceAuditDao
+    abstract fun batchJobDao(): BatchJobDao
+    abstract fun searchIndexDao(): SearchIndexDao
 
     companion object {
         @Volatile

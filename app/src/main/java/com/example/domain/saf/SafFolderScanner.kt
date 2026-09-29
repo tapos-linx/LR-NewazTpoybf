@@ -18,7 +18,10 @@ data class DiscoveredFile(
     val sizeBytes: Long,
     val isZeroByte: Boolean,
     val format: String,
-    val classifiedType: LandRecordType
+    val classifiedType: LandRecordType,
+    val sha256Hash: String = "",
+    val isDuplicate: Boolean = false,
+    val duplicateOriginalSource: String? = null
 )
 
 data class FolderScanSummary(
@@ -26,13 +29,16 @@ data class FolderScanSummary(
     val totalFilesFound: Int,
     val supportedFiles: List<DiscoveredFile>,
     val zeroByteFiles: List<DiscoveredFile>,
+    val duplicateFiles: List<DiscoveredFile> = emptyList(),
     val ignoredFilesCount: Int,
     val categoriesFound: Map<String, Int>
 )
 
 class SafFolderScanner(private val context: Context) {
 
-    private val supportedExtensions = setOf("pdf", "jpg", "jpeg", "png", "tiff", "tif", "webp")
+    private val supportedExtensions = setOf(
+        "pdf", "jpg", "jpeg", "png", "tiff", "tif", "webp", "docx", "xlsx", "zip", "bmp"
+    )
 
     suspend fun scanDirectory(treeUri: Uri): FolderScanSummary = withContext(Dispatchers.IO) {
         val rootDoc = DocumentFile.fromTreeUri(context, treeUri)
@@ -40,9 +46,18 @@ class SafFolderScanner(private val context: Context) {
 
         val supported = mutableListOf<DiscoveredFile>()
         val zeroBytes = mutableListOf<DiscoveredFile>()
+        val duplicates = mutableListOf<DiscoveredFile>()
+        val seenHashes = mutableMapOf<String, String>() // sha256 -> original path
         var ignoredCount = 0
 
-        traverseDocument(rootDoc, parentName = rootDoc.name ?: "input", supported, zeroBytes) {
+        traverseDocument(
+            rootDoc,
+            parentName = rootDoc.name ?: "input",
+            supportedOut = supported,
+            zeroBytesOut = zeroBytes,
+            duplicatesOut = duplicates,
+            seenHashes = seenHashes
+        ) {
             ignoredCount++
         }
 
@@ -53,6 +68,7 @@ class SafFolderScanner(private val context: Context) {
             totalFilesFound = supported.size + ignoredCount,
             supportedFiles = supported,
             zeroByteFiles = zeroBytes,
+            duplicateFiles = duplicates,
             ignoredFilesCount = ignoredCount,
             categoriesFound = categories
         )
@@ -63,12 +79,22 @@ class SafFolderScanner(private val context: Context) {
         parentName: String,
         supportedOut: MutableList<DiscoveredFile>,
         zeroBytesOut: MutableList<DiscoveredFile>,
+        duplicatesOut: MutableList<DiscoveredFile>,
+        seenHashes: MutableMap<String, String>,
         onIgnored: () -> Unit
     ) {
         if (doc.isDirectory) {
             val children = doc.listFiles()
             for (child in children) {
-                traverseDocument(child, parentName = doc.name ?: parentName, supportedOut, zeroBytesOut, onIgnored)
+                traverseDocument(
+                    child,
+                    parentName = doc.name ?: parentName,
+                    supportedOut = supportedOut,
+                    zeroBytesOut = zeroBytesOut,
+                    duplicatesOut = duplicatesOut,
+                    seenHashes = seenHashes,
+                    onIgnored = onIgnored
+                )
             }
         } else if (doc.isFile) {
             val name = doc.name ?: "unnamed"
@@ -77,6 +103,15 @@ class SafFolderScanner(private val context: Context) {
             if (ext in supportedExtensions) {
                 val size = doc.length()
                 val isZero = size == 0L
+                val hash = if (!isZero) computeSha256(doc.uri) else ""
+
+                // Forensic Duplicate Rule:
+                // Only consider duplicate if hash is identical, non-empty, and from same document content.
+                val existingSource = if (hash.isNotBlank()) seenHashes[hash] else null
+                val isDup = existingSource != null
+                if (hash.isNotBlank() && !isDup) {
+                    seenHashes[hash] = "$parentName/$name"
+                }
 
                 val item = DiscoveredFile(
                     uri = doc.uri,
@@ -86,16 +121,41 @@ class SafFolderScanner(private val context: Context) {
                     sizeBytes = size,
                     isZeroByte = isZero,
                     format = ext.uppercase(),
-                    classifiedType = LandRecordType.fromFolderOrName("$parentName $name")
+                    classifiedType = LandRecordType.fromFolderOrName("$parentName $name"),
+                    sha256Hash = hash,
+                    isDuplicate = isDup,
+                    duplicateOriginalSource = existingSource
                 )
 
                 supportedOut.add(item)
                 if (isZero) {
                     zeroBytesOut.add(item)
                 }
+                if (isDup) {
+                    duplicatesOut.add(item)
+                }
             } else {
                 onIgnored()
             }
+        }
+    }
+
+    /**
+     * Computes SHA-256 hash from Uri stream to enforce forensic deduplication.
+     */
+    fun computeSha256(uri: Uri): String {
+        return try {
+            context.contentResolver.openInputStream(uri)?.use { stream ->
+                val md = java.security.MessageDigest.getInstance("SHA-256")
+                val buffer = ByteArray(16384)
+                var bytesRead: Int
+                while (stream.read(buffer).also { bytesRead = it } != -1) {
+                    md.update(buffer, 0, bytesRead)
+                }
+                md.digest().joinToString("") { "%02x".format(it) }
+            } ?: ""
+        } catch (_: Exception) {
+            ""
         }
     }
 
