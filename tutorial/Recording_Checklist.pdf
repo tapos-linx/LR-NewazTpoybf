@@ -1,0 +1,85 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R
+   /MediaBox [0 0 595.28 841.89]
+   /Contents 4 0 R
+   /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >>
+>>
+endobj
+4 0 obj
+<< /Length 4371 >>
+stream
+q 0.2 0.3 0.5 rg 0.7 w
+45.0 806.89 m 550.28 806.89 l S
+BT /F1 8 Tf 0.3 0.3 0.3 rg
+45.0 811.89 Td (LR-NewazTpoybf v1.0 | Official Cinematic Tutorial Package) Tj ET
+45.0 40 m 550.28 40 l S
+BT /F1 8 Tf 0.4 0.4 0.4 rg
+45.0 28 Td (Confidential & Proprietary - Bangladesh Land Record Intelligence System) Tj ET
+BT /F1 8 Tf 0.4 0.4 0.4 rg 490.28 28 Td (Page 1 of 1) Tj ET
+Q
+q 0.08 0.18 0.36 rg 45.0 751.89 505.28 50 re f Q
+BT /F2 16 Tf 1 1 1 rg 59.0 777.89 Td (LR-Newaz Version 1.0) Tj ET
+BT /F1 10 Tf 0.85 0.9 0.98 rg 59.0 761.89 Td (Screen Recording Plan & UI Interaction Checklist) Tj ET
+q 0.85 0.65 0.13 rg 45.0 724.89 4 14 re f Q
+BT /F2 13 Tf 0.1 0.18 0.3 rg 55.0 726.89 Td (Studio Production Recording Checklist) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 45.0 704.89 Td (Follow these exact steps during production screen capture to match the master narration:) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 687.89 Td (* Step 01: Setup & Emulator Specs: Resolution 1080x2400 \(or 4K\), 60 FPS, Dark/Light theme set) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 674.89 Td (to Light Parchment, touch feedback enabled \(show taps\).) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 657.89 Td (* Step 02: APK Installation: Capture file download from release directory, Package Installer) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 644.89 Td (launch, 'Install' tap, and home screen icon launch.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 627.89 Td (* Step 03: Tesseract Language Setup: Tap AppBar 'tesseract_setup_button', show Bengali \(ben\) &) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 614.89 Td (English \(eng\) pack cards, tap verify status.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 597.89 Td (* Step 04: Dashboard Exploration: Scroll through LegalDisclaimerBanner, highlight MetricCard) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 584.89 Td (numbers \(Total, Verified, Errors\), tap Quick CSV bar.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 567.89 Td (* Step 05: Bulk SAF Upload: Tap 'fab_saf_folder', select sample deed directory, record animated) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 554.89 Td (progress indicators, hash computation, zero-byte skip.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 537.89 Td (* Step 06: Document OCR & Binarization: Open DocumentDetailScreen, demonstrate Otsu) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 524.89 Td (binarization slider, toggle between Raw Scan and High-Contrast Text.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 507.89 Td (* Step 07: Bangla HCR Review: Tap 'btn_open_hcr' banner, open HcrCorrectionScreen, inspect) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 494.89 Td (token confidence chips, edit one uncertain token, save.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 477.89 Td (* Step 08: Cadastral Map GIS Detection: Load survey sheet, show contour vector polygon) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 464.89 Td (extraction, Bengali digit bounding boxes, road and water layers.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 447.89 Td (* Step 09: Warishnama Inheritance Matching: Tap 'btn_open_warish_matcher', choose Warish) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 434.89 Td (certificate, view heir tree, verify statutory Ana-Ganda-Kranti shares.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 417.89 Td (* Step 10: Cadastral Plot Highlighting: Tap on heir share ' ', demonstrate instant) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 404.89 Td (emerald green polygon highlight and gold perimeter glow.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 387.89 Td (* Step 11: Historical Property Atlas: Tap 'card_atlas_banner', scrub CS -> SA -> RS -> BS) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 374.89 Td (timeline, observe Dag 402 split into 402/1 and 402/2.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 357.89 Td (* Step 12: Offline FTS Search: Type ' ' into 'search_input', demonstrate 15ms) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 344.89 Td (instantaneous query filtering on HomeScreen.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 327.89 Td (* Step 13: Report Export Suite: Tap 'export_csv_button', launch ReportExportDialog, generate) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 314.89 Td (PDF Dossier, Excel XLSX, and ZIP archive.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 297.89 Td (* Step 14: Final Security Summary: Show Settings, zero internet traffic in network profiler,) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 284.89 Td (Room database integrity confirmation.) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000272 00000 n 
+0000004695 00000 n 
+0000004765 00000 n 
+trailer
+<< /Size 7
+   /Root 1 0 R
+>>
+startxref
+4840
+%%EOF

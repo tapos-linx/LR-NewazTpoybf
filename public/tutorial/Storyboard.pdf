@@ -1,0 +1,412 @@
+%PDF-1.4
+%‚„œ”
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 4 0 R 5 0 R 6 0 R 7 0 R] /Count 5 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R
+   /MediaBox [0 0 595.28 841.89]
+   /Contents 8 0 R
+   /Resources << /Font << /F1 13 0 R /F2 14 0 R >> >>
+>>
+endobj
+4 0 obj
+<< /Type /Page /Parent 2 0 R
+   /MediaBox [0 0 595.28 841.89]
+   /Contents 9 0 R
+   /Resources << /Font << /F1 13 0 R /F2 14 0 R >> >>
+>>
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R
+   /MediaBox [0 0 595.28 841.89]
+   /Contents 10 0 R
+   /Resources << /Font << /F1 13 0 R /F2 14 0 R >> >>
+>>
+endobj
+6 0 obj
+<< /Type /Page /Parent 2 0 R
+   /MediaBox [0 0 595.28 841.89]
+   /Contents 11 0 R
+   /Resources << /Font << /F1 13 0 R /F2 14 0 R >> >>
+>>
+endobj
+7 0 obj
+<< /Type /Page /Parent 2 0 R
+   /MediaBox [0 0 595.28 841.89]
+   /Contents 12 0 R
+   /Resources << /Font << /F1 13 0 R /F2 14 0 R >> >>
+>>
+endobj
+8 0 obj
+<< /Length 6583 >>
+stream
+q 0.2 0.3 0.5 rg 0.7 w
+45.0 806.89 m 550.28 806.89 l S
+BT /F1 8 Tf 0.3 0.3 0.3 rg
+45.0 811.89 Td (LR-NewazTpoybf v1.0 | Official Cinematic Tutorial Package) Tj ET
+45.0 40 m 550.28 40 l S
+BT /F1 8 Tf 0.4 0.4 0.4 rg
+45.0 28 Td (Confidential & Proprietary - Bangladesh Land Record Intelligence System) Tj ET
+BT /F1 8 Tf 0.4 0.4 0.4 rg 490.28 28 Td (Page 1 of 5) Tj ET
+Q
+q 0.08 0.18 0.36 rg 45.0 751.89 505.28 50 re f Q
+BT /F2 16 Tf 1 1 1 rg 59.0 777.89 Td (LR-Newaz Version 1.0) Tj ET
+BT /F1 10 Tf 0.85 0.9 0.98 rg 59.0 761.89 Td (Complete Cinematic Tutorial Storyboard \(14 Scenes\)) Tj ET
+q 0.85 0.65 0.13 rg 45.0 724.89 4 14 re f Q
+BT /F2 13 Tf 0.1 0.18 0.3 rg 55.0 726.89 Td (Scene 01: Cinematic Introduction & Brand Identity) Tj ET
+q 0.15 0.25 0.42 rg 45.0 700.89 505.28 16 re f Q
+BT /F2 8.5 Tf 1 1 1 rg 49.0 704.89 Td (Timecode) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 160.1616 704.89 Td (00:00 - 00:35 \(35s\)) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 387.5376 704.89 Td (Transition) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 478.488 704.89 Td (Smooth cinemati) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 687.89 Td (* Screen Action: High-contrast dynamic launch animation of LR-NewazTpoybf Version 1.0. The) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 674.89 Td (screen zooms in smoothly onto the Bangladesh Land Record Extractor emblem, transitioning into) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 661.89 Td (the application's clean Material 3 Parchment & Sapphire theme.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 644.89 Td (* Camera Movement: Smooth slow zoom-in from 100% to 115%, soft aperture depth-of-field, subtle) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 631.89 Td (floating light particles on dark sapphire background.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 614.89 Td (* On-Screen Text: LR-NewazTpoybf v1.0 | Bangladesh Land Record Intelligence Platform) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 597.89 Td (* Narration \(EN\): Welcome to LR-Newaz Version 1.0, the definitive forensic intelligence) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 584.89 Td (platform designed specifically for Bangladesh land records. From historical handwritten) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 571.89 Td (Khatians to complex Cadastral survey maps, this complete user tutorial will guide you) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 558.89 Td (step-by-step through every feature.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 541.89 Td (* UI Components: Splash Logo, App Title, Offline Verification Badge, Build Version 1.0.0.) Tj ET
+q 0.85 0.65 0.13 rg 45.0 516.89 4 14 re f Q
+BT /F2 13 Tf 0.1 0.18 0.3 rg 55.0 518.89 Td (Scene 02: Standalone APK Installation & Zero-Permission Privacy) Tj ET
+q 0.15 0.25 0.42 rg 45.0 492.89 505.28 16 re f Q
+BT /F2 8.5 Tf 1 1 1 rg 49.0 496.89 Td (Timecode) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 160.1616 496.89 Td (00:35 - 01:15 \(40s\)) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 387.5376 496.89 Td (Transition) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 478.488 496.89 Td (Clean lateral s) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 479.89 Td (* Screen Action: User downloads app-debug.apk from the portal, opens Android Package Installer,) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 466.89 Td (confirms installation with zero unnecessary permissions, and launches the app directly into) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 453.89 Td (offline mode.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 436.89 Td (* Camera Movement: Top-down 45-degree angle macro zoom focusing on the Android Package) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 423.89 Td (Installer modal, panning down to the 'Install' and 'Open' buttons.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 406.89 Td (* On-Screen Text: Step 1: Install Standalone APK \(app-debug.apk\) | 100% Zero-Permission Privacy) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 389.89 Td (* Narration \(EN\): Getting started is completely seamless. Download the standalone APK file.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 376.89 Td (LR-Newaz requires zero dangerous media permissions, strictly utilizing Android's scoped Storage) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 363.89 Td (Access Framework to keep all your family deed records 100% private on your own device.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 346.89 Td (* UI Components: Package Installer, App Icon, 'Install' Button, Android Home Screen Launcher) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 333.89 Td (Icon.) Tj ET
+q 0.85 0.65 0.13 rg 45.0 308.89 4 14 re f Q
+BT /F2 13 Tf 0.1 0.18 0.3 rg 55.0 310.89 Td (Scene 03: Language Selection & Tesseract Offline OCR Engine Setup) Tj ET
+q 0.15 0.25 0.42 rg 45.0 284.89 505.28 16 re f Q
+BT /F2 8.5 Tf 1 1 1 rg 49.0 288.89 Td (Timecode) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 160.1616 288.89 Td (01:15 - 02:00 \(45s\)) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 387.5376 288.89 Td (Transition) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 478.488 288.89 Td (Subtle zoom-out) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 271.89 Td (* Screen Action: User opens the top AppBar menu, taps the MenuBook icon \(testTag:) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 258.89 Td ('tesseract_setup_button'\), navigates to TesseractSetupScreen, verifies Bengali) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 245.89 Td (\(ben.traineddata\) and English \(eng.traineddata\) language packs, and checks the green verified) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 232.89 Td (engine status indicator.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 215.89 Td (* Camera Movement: Close-up macro pan from top right AppBar icon down to the language pack) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 202.89 Td (verification cards with soft glow effects on the status badge.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 185.89 Td (* On-Screen Text: Step 2: Language & OCR Pack Setup | Tesseract 5.x Offline Traineddata) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 168.89 Td (* Narration \(EN\): Upon first launch, tap the OCR book icon in the top bar to inspect your) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 155.89 Td (offline language packs. The pre-bundled Bengali and English trained data files guarantee) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 142.89 Td (lightning-fast character recognition without needing an active internet connection.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 125.88999999999999 Td (* UI Components: TopAppBar 'tesseract_setup_button', TesseractSetupScreen, Bengali Pack Status,) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 112.88999999999999 Td (Engine Initialized Card.) Tj ET
+q 0.85 0.65 0.13 rg 45.0 87.88999999999999 4 14 re f Q
+BT /F2 13 Tf 0.1 0.18 0.3 rg 55.0 89.88999999999999 Td (Scene 04: Home Dashboard, Forensic Metrics & Legal Disclaimer) Tj ET
+endstream
+endobj
+9 0 obj
+<< /Length 7166 >>
+stream
+q 0.2 0.3 0.5 rg 0.7 w
+45.0 806.89 m 550.28 806.89 l S
+BT /F1 8 Tf 0.3 0.3 0.3 rg
+45.0 811.89 Td (LR-NewazTpoybf v1.0 | Official Cinematic Tutorial Package) Tj ET
+45.0 40 m 550.28 40 l S
+BT /F1 8 Tf 0.4 0.4 0.4 rg
+45.0 28 Td (Confidential & Proprietary - Bangladesh Land Record Intelligence System) Tj ET
+BT /F1 8 Tf 0.4 0.4 0.4 rg 490.28 28 Td (Page 2 of 5) Tj ET
+Q
+q 0.15 0.25 0.42 rg 45.0 787.89 505.28 16 re f Q
+BT /F2 8.5 Tf 1 1 1 rg 49.0 791.89 Td (Timecode) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 160.1616 791.89 Td (02:00 - 02:40 \(40s\)) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 387.5376 791.89 Td (Transition) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 478.488 791.89 Td (Split-second cr) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 774.89 Td (* Screen Action: Overview of HomeScreen. Demonstration of the mandatory Legal Disclaimer) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 761.89 Td (Banner, real-time forensic metric counters \(Total Documents, Verified, Zero-Byte Errors\), and) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 748.89 Td (the Quick CSV External Reporting bar.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 731.89 Td (* Camera Movement: Gentle downward vertical pan across the Legal Disclaimer, metric counter) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 718.89 Td (cards, and search bar.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 701.89 Td (* On-Screen Text: Step 3: Home Dashboard Overview | Real-Time Audit Metrics) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 684.89 Td (* Narration \(EN\): The Home Dashboard provides an instant snapshot of your archive. Notice the) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 671.89 Td (legal disclaimer highlighting automated forensic assistance, alongside real-time metric cards) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 658.89 Td (showing total documents, verified status, and zero-byte error detection.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 641.89 Td (* UI Components: LegalDisclaimerBanner, MetricCard \(' ', '', '- '\),) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 628.89 Td ('btn_export_csv_quick'.) Tj ET
+q 0.85 0.65 0.13 rg 45.0 603.89 4 14 re f Q
+BT /F2 13 Tf 0.1 0.18 0.3 rg 55.0 605.89 Td (Scene 05: Bulk Document Ingestion & Storage Access Framework \(SAF\)) Tj ET
+q 0.15 0.25 0.42 rg 45.0 579.89 505.28 16 re f Q
+BT /F2 8.5 Tf 1 1 1 rg 49.0 583.89 Td (Timecode) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 160.1616 583.89 Td (02:40 - 03:30 \(50s\)) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 387.5376 583.89 Td (Transition) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 478.488 583.89 Td (Card expansion ) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 566.89 Td (* Screen Action: User taps the Extended FAB '  \(SAF\)' \(testTag: 'fab_saf_folder'\)) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 553.89 Td (or the Bulk Upload icon \(testTag: 'btn_bulk_upload_nav'\). User selects a batch folder) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 540.89 Td (containing PDF deeds and JPEG scans. The upload queue displays live progress, integrity) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 527.89 Td (hashing, and zero-byte safety validation.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 510.89 Td (* Camera Movement: Dynamic push-in on the Floating Action Button, transitioning to the SAF) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 497.89 Td (system tree, then panning down the active ingestion queue.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 480.89 Td (* On-Screen Text: Step 4: Bulk Ingestion via SAF | Scoped Storage & Zero-Byte Safety) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 463.89 Td (* Narration \(EN\): To import records, tap the 'Input Folder' floating button. Select an entire) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 450.89 Td (folder of scans or PDF deeds. The bulk upload engine validates each file, checks cryptographic) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 437.89 Td (SHA-256 hashes, and filters out corrupted or zero-byte files automatically.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 420.89 Td (* UI Components: FAB 'fab_saf_folder', BulkUploadScreen, ProgressBar,) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 407.89 Td ('btn_start_batch_processing'.) Tj ET
+q 0.85 0.65 0.13 rg 45.0 382.89 4 14 re f Q
+BT /F2 13 Tf 0.1 0.18 0.3 rg 55.0 384.89 Td (Scene 06: High-Contrast Document OCR & Adaptive Binarization) Tj ET
+q 0.15 0.25 0.42 rg 45.0 358.89 505.28 16 re f Q
+BT /F2 8.5 Tf 1 1 1 rg 49.0 362.89 Td (Timecode) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 160.1616 362.89 Td (03:30 - 04:20 \(50s\)) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 387.5376 362.89 Td (Transition) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 478.488 362.89 Td (Vertical scanni) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 345.89 Td (* Screen Action: Demonstration of OCR processing. The app applies automated deskewing, Otsu) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 332.89 Td (adaptive binarization to faded ink, and extracts tabular Khatian structures including Mouza, JL) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 319.89 Td (Number, CS/SA/RS/BRS classification, and owner shares with confidence scores.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 302.89 Td (* Camera Movement: Cinematic vertical split-screen comparison: Left side showing the faded) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 289.89 Td (yellowed historical deed scan, Right side showing the crisp binarized text with green) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 276.89 Td (confidence bounding boxes.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 259.89 Td (* On-Screen Text: Step 5: Tabular OCR Extraction | Deskewing, Otsu Binarization & Confidence) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 246.89 Td (Scoring) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 229.89 Td (* Narration \(EN\): Watch the AI engine handle aged, faded parchment. Through adaptive) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 216.89 Td (binarization and morphological filtering, the system extracts tabular Khatian fields, owner) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 203.89 Td (names, and share ratios, color-coding high confidence in green and uncertain fields in amber.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 186.89 Td (* UI Components: DocumentDetailScreen, FieldConfidenceChip \(VERIFIED / PROBABLE\), Extracted) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 173.89 Td (Table Grid.) Tj ET
+q 0.85 0.65 0.13 rg 45.0 148.89 4 14 re f Q
+BT /F2 13 Tf 0.1 0.18 0.3 rg 55.0 150.89 Td (Scene 07: Module 04: Bangla Handwriting Recognition \(HCR\) & Marginalia Review) Tj ET
+q 0.15 0.25 0.42 rg 45.0 124.88999999999999 505.28 16 re f Q
+BT /F2 8.5 Tf 1 1 1 rg 49.0 128.89 Td (Timecode) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 160.1616 128.89 Td (04:20 - 05:15 \(55s\)) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 387.5376 128.89 Td (Transition) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 478.488 128.89 Td (Horizontal slid) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 111.88999999999999 Td (* Screen Action: User taps the HCR banner on Home \(testTag: 'btn_open_hcr'\) or navigates to) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 98.88999999999999 Td (HcrCorrectionScreen. The UI presents cursive Bengali scribbles, official revenue stamps, and) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 85.88999999999999 Td (marginal endorsements. User reviews confidence chips, edits uncertain tokens, and tags marginal) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 72.88999999999999 Td (notes.) Tj ET
+endstream
+endobj
+10 0 obj
+<< /Length 7017 >>
+stream
+q 0.2 0.3 0.5 rg 0.7 w
+45.0 806.89 m 550.28 806.89 l S
+BT /F1 8 Tf 0.3 0.3 0.3 rg
+45.0 811.89 Td (LR-NewazTpoybf v1.0 | Official Cinematic Tutorial Package) Tj ET
+45.0 40 m 550.28 40 l S
+BT /F1 8 Tf 0.4 0.4 0.4 rg
+45.0 28 Td (Confidential & Proprietary - Bangladesh Land Record Intelligence System) Tj ET
+BT /F1 8 Tf 0.4 0.4 0.4 rg 490.28 28 Td (Page 3 of 5) Tj ET
+Q
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 791.89 Td (* Camera Movement: Tight macro zoom on cursive Bengali handwriting sample, highlighting token) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 778.89 Td (chips with animated tooltip popups showing confidence percentages.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 761.89 Td (* On-Screen Text: Step 6: Bangla Handwriting Recognition \(HCR\) | Marginalia & Revenue Stamp) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 748.89 Td (Recovery) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 731.89 Td (* Narration \(EN\): Module 04 is our breakthrough Bangla Handwriting Recognition engine. It) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 718.89 Td (deciphers cursive scribbles, revenue stamps, and marginal endorsements. You can inspect) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 705.89 Td (individual token confidence scores, make real-time corrections, and insert forensic provenance) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 692.89 Td (tags.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 675.89 Td (* UI Components: HcrCorrectionScreen, 'card_hcr_banner', TokenConfidenceChip, MarginaliaCard,) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 662.89 Td ('btn_save_hcr_corrections'.) Tj ET
+q 0.85 0.65 0.13 rg 45.0 637.89 4 14 re f Q
+BT /F2 13 Tf 0.1 0.18 0.3 rg 55.0 639.89 Td (Scene 08: Module 05: Cadastral Survey Map Intelligence & Polygon Detection) Tj ET
+q 0.15 0.25 0.42 rg 45.0 613.89 505.28 16 re f Q
+BT /F2 8.5 Tf 1 1 1 rg 49.0 617.89 Td (Timecode) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 160.1616 617.89 Td (05:15 - 06:10 \(55s\)) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 387.5376 617.89 Td (Transition) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 478.488 617.89 Td (Holographic gri) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 600.89 Td (* Screen Action: Demonstration of Cadastral Map GIS detection. The engine analyzes CS, SA, RS,) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 587.89 Td (and BS survey sheets, detecting plot polygons, Bengali digit plot numbers, road corridors,) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 574.89 Td (water bodies, and the official north arrow with sub-pixel contour approximation.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 557.89 Td (* Camera Movement: Smooth 2D pan across a high-resolution Cadastral survey map sheet, zooming) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 544.89 Td (into Dag plot boundaries as glowing vector outlines snap into place.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 527.89 Td (* On-Screen Text: Step 7: Cadastral Map Intelligence | Vector Polygon Extraction & Bengali) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 514.89 Td (Digit Detection) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 497.89 Td (* Narration \(EN\): In Module 05, the Cadastral Survey Map Intelligence engine processes complex) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 484.89 Td (survey sheets. It automatically vectors plot contours, recognizes Bengali Dag numbers,) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 471.89 Td (identifies water bodies and roads, and aligns the true north orientation.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 454.89 Td (* UI Components: CadastralMapView, DagPolygonHighlight, RoadNetworkOverlay,) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 441.89 Td (NorthArrowIndicator.) Tj ET
+q 0.85 0.65 0.13 rg 45.0 416.89 4 14 re f Q
+BT /F2 13 Tf 0.1 0.18 0.3 rg 55.0 418.89 Td (Scene 09: Module 06: Warishnama Inheritance Matching & Genealogical Links) Tj ET
+q 0.15 0.25 0.42 rg 45.0 392.89 505.28 16 re f Q
+BT /F2 8.5 Tf 1 1 1 rg 49.0 396.89 Td (Timecode) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 160.1616 396.89 Td (06:10 - 07:15 \(65s\)) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 387.5376 396.89 Td (Transition) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 478.488 396.89 Td (Accordion fold ) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 379.89 Td (* Screen Action: User taps '    ' \(testTag:) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 366.89 Td ('btn_open_warish_matcher'\) to enter WarishMatcherScreen. User selects a Warish certificate,) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 353.89 Td (cross-references genealogical heirs against CS/SA/RS ancestor titles, reviews legal share) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 340.89 Td (calculations \(---\), and inspects forensic audit tiers.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 323.89 Td (* Camera Movement: Medium pan following the genealogical tree hierarchy descending from) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 310.89 Td (deceased landholder to lawful heirs with connecting gold links.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 293.89 Td (* On-Screen Text: Step 8: Warishnama Inheritance Matching | Muslim & Hindu Succession &) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 280.89 Td (Forensic Evidence Tiers) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 263.89 Td (* Narration \(EN\): Module 06 delivers automated Warishnama inheritance matching. It calculates) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 250.89 Td (precise shares under statutory inheritance rules, cross-matches genealogical heirs against) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 237.89 Td (historical Khatians, and classifies links into forensic tiers from Verified to Record Gap.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 220.89 Td (* UI Components: WarishMatcherScreen, 'btn_open_warish_matcher', HeirShareCard,) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 207.89 Td (EvidenceTierBadge \(VERIFIED / CORROBORATED / GAP\).) Tj ET
+q 0.85 0.65 0.13 rg 45.0 182.89 4 14 re f Q
+BT /F2 13 Tf 0.1 0.18 0.3 rg 55.0 184.89 Td (Scene 10: Cadastral Dag Highlighting & Interactive Parcel Inspection) Tj ET
+q 0.15 0.25 0.42 rg 45.0 158.89 505.28 16 re f Q
+BT /F2 8.5 Tf 1 1 1 rg 49.0 162.89 Td (Timecode) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 160.1616 162.89 Td (07:15 - 08:05 \(50s\)) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 387.5376 162.89 Td (Transition) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 478.488 162.89 Td (Circular iris z) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 145.89 Td (* Screen Action: Within WarishMatcherScreen and AtlasTimelineScreen, user taps on an heir's) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 132.89 Td (entitlement. Instantly, corresponding Dag plots \(e.g. Dag 402, 405\) illuminate in bright) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 119.88999999999999 Td (emerald green on the Cadastral map canvas, while adjacent plots pulse in amber.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 102.88999999999999 Td (* Camera Movement: Dynamic 3D tilt and rapid smooth zoom focusing on Dag Plot #402 as the) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 89.88999999999999 Td (emerald highlight pulses with a golden perimeter halo.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 72.88999999999999 Td (* On-Screen Text: Step 9: Highlight Matching Lands | Emerald Green Highlighting of Validated) Tj ET
+endstream
+endobj
+11 0 obj
+<< /Length 7009 >>
+stream
+q 0.2 0.3 0.5 rg 0.7 w
+45.0 806.89 m 550.28 806.89 l S
+BT /F1 8 Tf 0.3 0.3 0.3 rg
+45.0 811.89 Td (LR-NewazTpoybf v1.0 | Official Cinematic Tutorial Package) Tj ET
+45.0 40 m 550.28 40 l S
+BT /F1 8 Tf 0.4 0.4 0.4 rg
+45.0 28 Td (Confidential & Proprietary - Bangladesh Land Record Intelligence System) Tj ET
+BT /F1 8 Tf 0.4 0.4 0.4 rg 490.28 28 Td (Page 4 of 5) Tj ET
+Q
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 791.89 Td (Dag Plots) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 774.89 Td (* Narration \(EN\): Notice how the system immediately bridges records and geography. Tapping an) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 761.89 Td (heir's entitlement instantly highlights their validated land plots on the Cadastral map in) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 748.89 Td (vivid emerald green, allowing surveyors and landowners to inspect exact physical boundaries.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 731.89 Td (* UI Components: InteractiveMapCanvas, HighlightedDagPlot \(' '\), LandParcelPopup,) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 718.89 Td (AreaSummaryBadge.) Tj ET
+q 0.85 0.65 0.13 rg 45.0 693.89 4 14 re f Q
+BT /F2 13 Tf 0.1 0.18 0.3 rg 55.0 695.89 Td (Scene 11: Module 13 & 14: Historical Property Atlas & Forensic Validation Engine) Tj ET
+q 0.15 0.25 0.42 rg 45.0 669.89 505.28 16 re f Q
+BT /F2 8.5 Tf 1 1 1 rg 49.0 673.89 Td (Timecode) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 160.1616 673.89 Td (08:05 - 09:05 \(60s\)) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 387.5376 673.89 Td (Transition) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 478.488 673.89 Td (Time-lapse slid) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 656.89 Td (* Screen Action: User opens Historical Atlas from Home \(testTag: 'card_atlas_banner'\).) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 643.89 Td (Demonstrates the 4-era timeline \(CS 1910 -> SA 1956 -> RS 1972 -> BS 1998\), visualizing how Dag) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 630.89 Td (402 was partitioned into sub-plots 402/1 and 402/2. Shows discrepancy alerts for area mismatch) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 617.89 Td (and honorific name variations.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 600.89 Td (* Camera Movement: Horizontal tracking camera sliding along the timeline chronometer, followed) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 587.89 Td (by split-screen tree branching visualization.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 570.89 Td (* On-Screen Text: Step 10: Historical Property Atlas | CS -> SA -> RS -> BS Chain & Dag Split) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 557.89 Td (Detection) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 540.89 Td (* Narration \(EN\): Modules 13 and 14 introduce the Historical Property Atlas and Forensic) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 527.89 Td (Validation Engine. Trace your property through every major survey across a century: CS, SA, RS,) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 514.89 Td (and BS. The engine automatically detects Dag splits, area discrepancies, and historical name) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 501.89 Td (variants.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 484.89 Td (* UI Components: AtlasTimelineScreen, 'card_atlas_banner', TimelineNode \(CS/SA/RS/BS\),) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 471.89 Td (DagSplitFlowDiagram, DiscrepancyAlertCard.) Tj ET
+q 0.85 0.65 0.13 rg 45.0 446.89 4 14 re f Q
+BT /F2 13 Tf 0.1 0.18 0.3 rg 55.0 448.89 Td (Scene 12: High-Speed Offline Search & Multi-Criteria Filtering) Tj ET
+q 0.15 0.25 0.42 rg 45.0 422.89 505.28 16 re f Q
+BT /F2 8.5 Tf 1 1 1 rg 49.0 426.89 Td (Timecode) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 160.1616 426.89 Td (09:05 - 09:50 \(45s\)) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 387.5376 426.89 Td (Transition) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 478.488 426.89 Td (Snappy dissolve) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 409.89 Td (* Screen Action: User returns to HomeScreen, types ' ' or ' ' into the search) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 396.89 Td (field \(testTag: 'search_input'\). Instant full-text search results filter the document list) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 383.89 Td (within milliseconds using local SQLite FTS.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 366.89 Td (* Camera Movement: Close-up on typing in the search bar, with instant reactive filtering of the) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 353.89 Td (list below, accompanied by soft amber highlight pulses on matched keywords.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 336.89 Td (* On-Screen Text: Step 11: Instant Offline Search | SQLite Full-Text Search \(FTS\) by Khatian,) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 323.89 Td (Dag & Owner) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 306.89 Td (* Narration \(EN\): Finding any deed or plot in your archive is instantaneous. Use the search bar) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 293.89 Td (to query by Khatian number, Dag plot, Mouza, or owner name in English or Bengali. SQLite) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 280.89 Td (Full-Text Search delivers results locally in under twenty milliseconds.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 263.89 Td (* UI Components: OutlinedTextField 'search_input', CapturedRecordCard, HighlightedSearchTerms.) Tj ET
+q 0.85 0.65 0.13 rg 45.0 238.89 4 14 re f Q
+BT /F2 13 Tf 0.1 0.18 0.3 rg 55.0 240.89 Td (Scene 13: Multi-Format Forensic Report Export \(PDF, Excel, GeoJSON, ZIP\)) Tj ET
+q 0.15 0.25 0.42 rg 45.0 214.89 505.28 16 re f Q
+BT /F2 8.5 Tf 1 1 1 rg 49.0 218.89 Td (Timecode) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 160.1616 218.89 Td (09:50 - 10:45 \(55s\)) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 387.5376 218.89 Td (Transition) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 478.488 218.89 Td (Smooth 3D page ) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 201.89 Td (* Screen Action: User taps '  \(SAF\)' or opens DocumentDetailScreen export menu.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 188.89 Td (User selects PDF Court Dossier, Excel XLSX Workbook, Cadastral GeoJSON, or All-in-One Forensic) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 175.89 Td (ZIP Archive. Android SAF dialog saves the files to device storage with zero permissions.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 158.89 Td (* Camera Movement: Hero showcase view of the generated multi-page bilingual PDF dossier,) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 145.89 Td (zooming into the forensic stamp, followed by Excel and GeoJSON asset cards.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 128.89 Td (* On-Screen Text: Step 12: Multi-Format Forensic Export | Court Dossier PDF, Excel, GeoJSON &) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 115.88999999999999 Td (ZIP) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 98.88999999999999 Td (* Narration \(EN\): Exporting court-ready reports is effortless. Choose from professional) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 85.88999999999999 Td (bilingual PDF Dossiers with cryptographic stamps, comprehensive Excel workbooks, GIS GeoJSON) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 72.88999999999999 Td (layers, or packaged forensic ZIP archives for legal and surveying submissions.) Tj ET
+endstream
+endobj
+12 0 obj
+<< /Length 2407 >>
+stream
+q 0.2 0.3 0.5 rg 0.7 w
+45.0 806.89 m 550.28 806.89 l S
+BT /F1 8 Tf 0.3 0.3 0.3 rg
+45.0 811.89 Td (LR-NewazTpoybf v1.0 | Official Cinematic Tutorial Package) Tj ET
+45.0 40 m 550.28 40 l S
+BT /F1 8 Tf 0.4 0.4 0.4 rg
+45.0 28 Td (Confidential & Proprietary - Bangladesh Land Record Intelligence System) Tj ET
+BT /F1 8 Tf 0.4 0.4 0.4 rg 490.28 28 Td (Page 5 of 5) Tj ET
+Q
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 791.89 Td (* UI Components: ReportExportDialog, 'export_csv_button', FormatRadioGroup \(PDF / EXCEL /) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 778.89 Td (GEOJSON / ZIP\), SuccessSnackBar.) Tj ET
+q 0.85 0.65 0.13 rg 45.0 753.89 4 14 re f Q
+BT /F2 13 Tf 0.1 0.18 0.3 rg 55.0 755.89 Td (Scene 14: Offline Security, Summary & Next Steps) Tj ET
+q 0.15 0.25 0.42 rg 45.0 729.89 505.28 16 re f Q
+BT /F2 8.5 Tf 1 1 1 rg 49.0 733.89 Td (Timecode) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 160.1616 733.89 Td (10:45 - 11:30 \(45s\)) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 387.5376 733.89 Td (Transition) Tj ET
+BT /F2 8.5 Tf 1 1 1 rg 478.488 733.89 Td (Slow cinematic ) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 716.89 Td (* Screen Action: Final review of system architecture: 100% offline capability, local Room) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 703.89 Td (database, zero cloud leaks, and verified build stability. Shows the official GitHub repository,) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 690.89 Td (documentation links, and conclusion.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 673.89 Td (* Camera Movement: Smooth pull-back from mobile device to high-tech desk environment, fading up) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 660.89 Td (the LR-NewazTpoybf Version 1.0 golden badge and documentation links.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 643.89 Td (* On-Screen Text: LR-NewazTpoybf Version 1.0 | Offline * Private * Forensic * Complete) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 626.89 Td (* Narration \(EN\): You are now fully equipped to utilize LR-Newaz Version 1.0. Completely) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 613.89 Td (offline, forensically verifiable, and built to safeguard Bangladesh land heritage. Download the) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 600.89 Td (release, explore the documentation, and master your land records with total confidence.) Tj ET
+BT /F1 9 Tf 0.15 0.15 0.15 rg 53.0 583.89 Td (* UI Components: FinalSummaryCard, DocumentationLinks, Version1Badge, ExitCredits.) Tj ET
+endstream
+endobj
+13 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>
+endobj
+14 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >>
+endobj
+xref
+0 15
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000145 00000 n 
+0000000298 00000 n 
+0000000451 00000 n 
+0000000605 00000 n 
+0000000759 00000 n 
+0000000913 00000 n 
+0000007548 00000 n 
+0000014766 00000 n 
+0000021836 00000 n 
+0000028898 00000 n 
+0000031358 00000 n 
+0000031429 00000 n 
+trailer
+<< /Size 15
+   /Root 1 0 R
+>>
+startxref
+31505
+%%EOF

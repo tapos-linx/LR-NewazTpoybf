@@ -4,6 +4,9 @@ on:
   push:
     tags:
       - 'v*'
+    branches:
+      - main
+  workflow_dispatch:
 
 jobs:
   release:
@@ -20,28 +23,55 @@ jobs:
           distribution: 'temurin'
           cache: 'gradle'
 
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
       - name: Build Standalone APK
         run: ./gradlew :app:assembleDebug --no-daemon
 
       - name: Package Forensic Docs & Schema
         run: |
           mkdir -p release-bundle
-          cp app/build/outputs/apk/debug/*.apk release-bundle/LR-Newaz-v1.0-release.apk || cp *.apk release-bundle/ || true
-          cp docs/ARCHITECTURE.md release-bundle/
-          cp README.md release-bundle/
+          cp app/build/outputs/apk/debug/*.apk release-bundle/LR-Newaz-v1.0.apk || cp *.apk release-bundle/LR-Newaz-v1.0.apk || true
+          cp app/build/outputs/apk/debug/*.apk release-bundle/app-debug.apk || cp *.apk release-bundle/app-debug.apk || true
+          cp docs/ARCHITECTURE.md release-bundle/ || true
+          cp README.md release-bundle/ || true
+          if [ -d "tutorial" ]; then
+            cp tutorial/Storyboard.pdf release-bundle/ || true
+            cp tutorial/Tutorial_Script.pdf release-bundle/ || true
+            cp tutorial/Recording_Checklist.pdf release-bundle/ || true
+            cp tutorial/Thumbnail.png release-bundle/ || true
+            cp tutorial/VoiceOver_BN.docx release-bundle/ || true
+            cp tutorial/VoiceOver_EN.docx release-bundle/ || true
+          fi
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/')
         with:
+          name: "LR-Newaz Version 1.0 Production Release"
+          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}
           files: release-bundle/*
           body: |
-            ## LR-NewazTpoybf Version 1.0 Production Release
-            - Zero-Data-Loss Forensic Land Record Intelligence
-            - Bangla OCR & Historical HCR Handwriting Recognition
-            - Cadastral Survey Map (CS, SA, RS, BS) Polygon Matching
-            - Warishnama Inheritance Farayez Balance & Evidence Classification
-            - Complete Offline Android Execution (SQLite / Room)
-            - Multi-Format Export (Excel, CSV, PDF, JSON, ZIP)
+            ## 📱 LR-Newaz Version 1.0 Production Release (Standalone APK)
+            
+            Download the official Android application package (`.apk`) directly to your phone's memory to install and use:
+            
+            ### 📥 Download Links
+            - **Primary App APK:** [`LR-Newaz-v1.0.apk`](https://github.com/${{ github.repository }}/releases/download/${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}/LR-Newaz-v1.0.apk)
+            - **Debug APK:** [`app-debug.apk`](https://github.com/${{ github.repository }}/releases/download/${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}/app-debug.apk)
+            
+            ### 📲 How to Install on Your Android Phone:
+            1. Tap on **`LR-Newaz-v1.0.apk`** to download it to your phone's storage.
+            2. When the download completes, tap the notification or open your **Files** / **Downloads** app.
+            3. Tap on the downloaded APK file. If Android prompts *"For your security, your phone is not allowed to install unknown apps from this source"*, tap **Settings** and toggle **Allow from this source**.
+            4. Tap **Install** and then **Open** to launch LR-Newaz!
+            
+            ### 🚀 Features Included:
+            - **100% Offline Architecture** (Local SQLite / Room Database)
+            - **Bangla OCR & Historical Handwriting Recognition (HCR)**
+            - **Cadastral Survey Map Intelligence** (CS, SA, RS, BS Polygon Matching)
+            - **Warishnama Inheritance Farayez Balancing & Dag Plot Highlighting**
+            - **Historical Property Atlas** (CS -> SA -> RS -> BS Timeline)
+            - **Multi-Format Export** (PDF Court Dossier, Excel XLSX, GeoJSON, Forensic ZIP)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

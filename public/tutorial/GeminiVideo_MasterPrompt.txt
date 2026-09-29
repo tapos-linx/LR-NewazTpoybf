@@ -1,0 +1,16 @@
+// ==============================================================================
+// GEMINI VIDEO MASTER PROMPT: LR-NEWAZTPoybf v1.0 PRODUCTION TUTORIAL
+// ==============================================================================
+Generate an 11-minute comprehensive cinematic software walkthrough for LR-NewazTpoybf Version 1.0 (Bangladesh Land Record Intelligence).
+
+CORE VISUAL THEME:
+- Modern Android Material 3 with Parchment Paper and Deep Sapphire styling.
+- High-contrast visual representations of aged Bengali land deeds (CS, SA, RS, BS Porcha).
+- Emerald green (#10B981) used strictly for verified Dag parcel plots and inheritance entitlements.
+- Amber (#F59E0B) for heuristic warnings and record gaps.
+
+SCENE COMPOSITING RULES:
+- Frame Rate: 60 FPS constant.
+- Screen Actions: Strictly synchronize touch interactions with button testTags ('btn_open_warish_matcher', 'fab_saf_folder', 'btn_open_hcr', 'card_atlas_banner').
+- Text Overlays: Clean modern sans-serif lower-thirds in English with Bengali subtitles.
+- Audio Bed: Subtle ambient corporate tech synth bed with dynamic sidechain ducking during spoken narration.

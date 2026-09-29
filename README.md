@@ -4,10 +4,45 @@
 [![Kotlin](https://img.shields.io/badge/Language-Kotlin-purple.svg)](https://kotlinlang.org)
 [![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose%20M3-blue.svg)](https://developer.android.com/jetpack/compose)
 [![Offline First](https://img.shields.io/badge/Privacy-100%25%20Offline-brightgreen.svg)](#offline-first--privacy)
+[![Download APK](https://img.shields.io/badge/Download%20APK-26%20MB-blue.svg)](app-debug.apk)
 
 **Newaz Land Record Extractor** is a local, evidence-preserving Android application engineered for extracting, validating, and managing Bangladesh land records (Porcha/Khatian, Dag, Mouza, Deeds, Mutation, Dakhila) from PDFs, scanned images, and multi-page camera captures.
 
 Developed for target repository: **`tapos-py/newaz-lrecord-extractor`**
+
+---
+
+## 📲 ফোন মেমোরিতে সরাসরি ডাউনলোড ও ইনস্টল (Direct Download APK to Phone)
+
+ব্যবহারকারীরা সরাসরি রিপোজিটরি থেকে APK ফাইলটি ফোনের মেমোরিতে ডাউনলোড করে ইনস্টল করতে পারবেন:
+
+### 📥 সরাসরি APK ডাউনলোড লিংক (Direct APK Download Links):
+- 🔹 **সরাসরি ডাউনলোড (Direct Repository APK):** [**`app-debug.apk` (26 MB)**](https://github.com/tapos-py/newaz-lrecord-extractor/raw/main/app-debug.apk)
+- 🔹 **অফিসিয়াল রিলিজ পৃষ্ঠা (GitHub Releases):** [**LR-Newaz v1.0 Production Releases**](https://github.com/tapos-py/newaz-lrecord-extractor/releases)
+
+---
+
+### 📱 কীভাবে ফোনে ইনস্টল করবেন (Step-by-Step Installation Guide):
+
+```text
+১. ডাউনলোড করুন              ২. ফাইলটি ওপেন করুন            ৩. পারমিশন দিন ও ইনস্টল করুন
+   [app-debug.apk]   --->   [Downloads ফোল্ডার]   --->   [Settings -> Allow -> Install]
+```
+
+1. **ডাউনলোড (Download to Phone Memory):**
+   - আপনার স্মার্টফোনের ব্রাউজার (Chrome/Firefox/Samsung Internet) দিয়ে রিপোজিটরির **`app-debug.apk`** লিংকে ট্যাপ করুন।
+   - ডাউনলোড নিশ্চিত করতে **"Download anyway"** নির্বাচন করুন। ফাইলটি আপনার ফোনের মেমোরিতে ডাউনলোড ফোল্ডারে সংরক্ষিত হবে।
+
+2. **ফাইল ওপেন (Open Downloaded APK):**
+   - ডাউনলোড সম্পন্ন হলে নোটিফিকেশন বারে থাকা নোটিফিকেশনে ট্যাপ করুন অথবা ফোনের **Files / My Files / Downloads** অ্যাপে গিয়ে **`app-debug.apk`** ফাইলটিতে ট্যাপ করুন।
+
+3. **অজানা উৎস থেকে ইনস্টলের অনুমতি (Allow Unknown Sources):**
+   - অ্যান্ড্রয়েড সিকিউরিটি প্রম্পট আসলে (*"For your security, your phone is not allowed to install unknown apps from this source"*), **Settings**-এ ট্যাপ করুন।
+   - **"Allow from this source"** অপশনটি চালু (ON) করে ব্যাক বাটনে ট্যাপ করুন।
+
+4. **ইনস্টল ও ব্যবহার (Install & Open):**
+   - **Install** বাটনে ট্যাপ করুন।
+   - ইনস্টলেশন শেষ হলে **Open** বাটনে ট্যাপ করে সম্পূর্ণ অফলাইনে ভূমি রেকর্ড ডিজিটাইজেশন শুরু করুন!
 
 ---
 
@@ -209,6 +244,25 @@ git remote add origin https://github.com/tapos-py/newaz-lrecord-extractor.git
 # 6. Push to GitHub (ensure you are authenticated via SSH or Personal Access Token)
 git push -u origin main
 ```
+
+---
+
+## 🎬 অফিসিয়াল টিউটোরিয়াল ও ভিডিও প্যাকেজ (Official Video Tutorial Package)
+
+A complete, production-ready cinematic user tutorial package has been auto-generated in `/tutorial` (and mirrored in `/public/tutorial` for direct browser access):
+
+| Deliverable | Format | Details |
+|---|---|---|
+| **Video Storyboard** | [`Storyboard.pdf`](tutorial/Storyboard.pdf) / [`Storyboard.md`](tutorial/Storyboard.md) | 14-scene cinematic storyboard (11m 30s) detailing camera movements, actions, and lower-third text |
+| **English Voiceover** | [`VoiceOver_EN.docx`](tutorial/VoiceOver_EN.docx) / [`VoiceOver_EN.md`](tutorial/VoiceOver_EN.md) | Studio-ready professional English narration script with pronunciation guide |
+| **Bangla Voiceover** | [`VoiceOver_BN.docx`](tutorial/VoiceOver_BN.docx) / [`VoiceOver_BN.md`](tutorial/VoiceOver_BN.md) | প্রমিত বাংলা ভয়েস-ওভার ও আইনি পরিভাষা উচ্চারণ নির্দেশিকা |
+| **Master Tutorial Script** | [`Tutorial_Script.pdf`](tutorial/Tutorial_Script.pdf) / [`Tutorial_Script.md`](tutorial/Tutorial_Script.md) | Director's cut with before/after AI demonstrations, split-screen VFX, and animated callouts |
+| **Screen Recording Checklist** | [`Recording_Checklist.pdf`](tutorial/Recording_Checklist.pdf) / [`Recording_Checklist.md`](tutorial/Recording_Checklist.md) | UI interaction checklist with exact Compose testTags, clicks, and inputs |
+| **Subtitles** | [`English.srt`](tutorial/English.srt) & [`Bangla.srt`](tutorial/Bangla.srt) | 100% synchronized SubRip caption files matching spoken narration |
+| **YouTube Thumbnail** | [`Thumbnail.png`](tutorial/Thumbnail.png) | 1920x1080 cinematic thumbnail with phone mockup, highlighted Cadastral map plot 402, and badges |
+| **AI Video Prompts** | [`Veo3_MasterPrompt.txt`](tutorial/Veo3_MasterPrompt.txt) & [`GeminiVideo_MasterPrompt.txt`](tutorial/GeminiVideo_MasterPrompt.txt) | Prompts for Google Veo 3 and Gemini Video 4K 60FPS generation |
+| **Audio & SFX Guides** | [`Music_Guide.pdf`](tutorial/Music_Guide.pdf) & [`Sound_Effects_Guide.pdf`](tutorial/Sound_Effects_Guide.pdf) | Soundtrack direction with audio ducking (-14dB) and subtle Foley sound cues |
+| **Export Instructions** | [`Export_Guide.pdf`](tutorial/Export_Guide.pdf) & [`Export_Guide.md`](tutorial/Export_Guide.md) | Multi-format rendering specs for YouTube 4K (16:9), TikTok/Shorts (9:16), and LinkedIn (1:1) |
 
 ---
 

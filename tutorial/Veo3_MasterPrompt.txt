@@ -1,0 +1,23 @@
+// ==============================================================================
+// GOOGLE VEO 3 MASTER PROMPT: LR-NEWAZ VERSION 1.0 CINEMATIC USER TUTORIAL
+// ==============================================================================
+// Output Spec: 4K UHD (3840x2160), 60 FPS, Master Cinematic Software Showcase
+// Color Palette: Deep Sapphire Blue (#0B132B), Antique Land Parchment (#FAF6EB),
+//                Emerald Green Dag Highlight (#10B981), Regal Gold Accent (#F59E0B)
+// Lighting: High-tech soft studio key light with volumetric rim lighting on smartphone device
+
+PROMPT:
+Cinematic 4K 60fps software showcase video for "LR-Newaz Bangladesh Land Record Extractor v1.0". 
+The video opens with a hyper-detailed 3D macro shot of a sleek modern Android smartphone resting on a minimalist walnut architect desk. Beside the phone are authentic historical Bangladesh land deeds (CS, SA, RS Khatians) with crimson revenue stamps. 
+
+Camera performs an ultra-smooth floating crane swoop into the smartphone screen, showcasing the high-contrast Material Design 3 interface. The UI features warm parchment-textured cards and sapphire buttons with Bengali and English typography. 
+
+Sequence of actions:
+1. The user's hand taps 'Input Folder (SAF)' Floating Action Button with a gentle, glowing tactile ripple. The screen transitions into the bulk document queue with real-time cryptographic hash verifications.
+2. Split-screen transformation: A weathered, 100-year-old cursive Bengali deed is scanned by a horizontal neon-cyan laser sweep, dynamically resolving into crisp, digitized tabular Khatian text with emerald green confidence tags.
+3. Bangla Handwriting Recognition (HCR): Macro zoom on handwritten ink marginalia, where words like 'মং দশ আনা' are highlighted by amber bounding boxes and corrected via an elegant touch keypad.
+4. Cadastral Survey Map Intelligence: The camera pans across a vintage British-era survey map. Contours lock into glowing vector polygons. Dag plot #402 illuminates in vivid radiant emerald green with an animated golden boundary halo.
+5. Warishnama inheritance matching: A genealogical tree cascades smoothly downwards, connecting deceased owners to lawful heirs with computed statutory shares.
+6. Multi-format export: A final tap on 'Export Report' generates a pristine multi-page court dossier PDF with authentic official stamps, accompanied by a soft golden particle celebration.
+
+Camera physics: Butter-smooth gimbal movements, gentle rack focus between foreground phone glass and background land deeds, zero motion judder, 4K crisp textures, photorealistic reflections on Gorilla Glass, premium corporate launch aesthetic.

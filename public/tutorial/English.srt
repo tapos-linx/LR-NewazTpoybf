@@ -1,0 +1,55 @@
+1
+00:00:00,000 --> 00:00:35,000
+Welcome to LR-Newaz Version 1.0, the definitive forensic intelligence platform designed specifically for Bangladesh land records. From historical handwritten Khatians to complex Cadastral survey maps, this complete user tutorial will guide you step-by-step through every feature.
+
+2
+00:00:35,000 --> 00:01:15,000
+Getting started is completely seamless. Download the standalone APK file. LR-Newaz requires zero dangerous media permissions, strictly utilizing Android's scoped Storage Access Framework to keep all your family deed records 100% private on your own device.
+
+3
+00:01:15,000 --> 00:02:00,000
+Upon first launch, tap the OCR book icon in the top bar to inspect your offline language packs. The pre-bundled Bengali and English trained data files guarantee lightning-fast character recognition without needing an active internet connection.
+
+4
+00:02:00,000 --> 00:02:40,000
+The Home Dashboard provides an instant snapshot of your archive. Notice the legal disclaimer highlighting automated forensic assistance, alongside real-time metric cards showing total documents, verified status, and zero-byte error detection.
+
+5
+00:02:40,000 --> 00:03:30,000
+To import records, tap the 'Input Folder' floating button. Select an entire folder of scans or PDF deeds. The bulk upload engine validates each file, checks cryptographic SHA-256 hashes, and filters out corrupted or zero-byte files automatically.
+
+6
+00:03:30,000 --> 00:04:20,000
+Watch the AI engine handle aged, faded parchment. Through adaptive binarization and morphological filtering, the system extracts tabular Khatian fields, owner names, and share ratios, color-coding high confidence in green and uncertain fields in amber.
+
+7
+00:04:20,000 --> 00:05:15,000
+Module 04 is our breakthrough Bangla Handwriting Recognition engine. It deciphers cursive scribbles, revenue stamps, and marginal endorsements. You can inspect individual token confidence scores, make real-time corrections, and insert forensic provenance tags.
+
+8
+00:05:15,000 --> 00:06:10,000
+In Module 05, the Cadastral Survey Map Intelligence engine processes complex survey sheets. It automatically vectors plot contours, recognizes Bengali Dag numbers, identifies water bodies and roads, and aligns the true north orientation.
+
+9
+00:06:10,000 --> 00:07:15,000
+Module 06 delivers automated Warishnama inheritance matching. It calculates precise shares under statutory inheritance rules, cross-matches genealogical heirs against historical Khatians, and classifies links into forensic tiers from Verified to Record Gap.
+
+10
+00:07:15,000 --> 00:08:05,000
+Notice how the system immediately bridges records and geography. Tapping an heir's entitlement instantly highlights their validated land plots on the Cadastral map in vivid emerald green, allowing surveyors and landowners to inspect exact physical boundaries.
+
+11
+00:08:05,000 --> 00:09:05,000
+Modules 13 and 14 introduce the Historical Property Atlas and Forensic Validation Engine. Trace your property through every major survey across a century: CS, SA, RS, and BS. The engine automatically detects Dag splits, area discrepancies, and historical name variants.
+
+12
+00:09:05,000 --> 00:09:50,000
+Finding any deed or plot in your archive is instantaneous. Use the search bar to query by Khatian number, Dag plot, Mouza, or owner name in English or Bengali. SQLite Full-Text Search delivers results locally in under twenty milliseconds.
+
+13
+00:09:50,000 --> 00:10:45,000
+Exporting court-ready reports is effortless. Choose from professional bilingual PDF Dossiers with cryptographic stamps, comprehensive Excel workbooks, GIS GeoJSON layers, or packaged forensic ZIP archives for legal and surveying submissions.
+
+14
+00:10:45,000 --> 00:11:30,000
+You are now fully equipped to utilize LR-Newaz Version 1.0. Completely offline, forensically verifiable, and built to safeguard Bangladesh land heritage. Download the release, explore the documentation, and master your land records with total confidence.
