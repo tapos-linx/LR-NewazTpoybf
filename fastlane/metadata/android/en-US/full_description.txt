@@ -1,0 +1,11 @@
+Newaz Land Record Extractor is a 100% offline, privacy-first Android application designed for landowners, researchers, surveyors, and lawyers to extract, digitize, validate, and preserve Bangladesh land records.
+
+Features:
+• Complete Offline Execution: Built on a local SQLite / Room database. Requires zero dangerous permissions and sends zero data to external servers.
+• Tabular OCR for Historical Deeds: High-contrast binarization and OCR tailored for aged, weathered parchment deeds (CS, SA, RS, BS, Porcha, Deeds, Mutations).
+• Bangla Handwriting Recognition (HCR): Deciphers cursive Bengali ink annotations, marginal notes, and official revenue stamps with confidence scoring.
+• Cadastral Survey Map Intelligence: Automated contour polygon extraction, Bengali plot digit recognition, road network and water body separation.
+• Warishnama Inheritance Matching: Calculates statutory inheritance shares (Ana, Ganda, Kranti) under statutory Muslim and Hindu succession laws, cross-matching genealogical heirs against ancestor titles.
+• Cadastral Plot Highlighting: Tapping an heir's entitlement instantly highlights corresponding Dag plots (e.g. Dag 402) on the survey map in radiant emerald green.
+• Historical Property Atlas: Centenary timeline (CS 1910 -> SA 1956 -> RS 1972 -> BS 1998) tracking parcel splits, merges, and area discrepancies.
+• Multi-Format Forensic Export: Generates court-ready PDF dossiers with cryptographic verification seals, Excel XLSX sheets, GIS GeoJSON layers, and forensic ZIP archives.

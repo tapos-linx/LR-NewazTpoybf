@@ -4,6 +4,8 @@
 [![Kotlin](https://img.shields.io/badge/Language-Kotlin-purple.svg)](https://kotlinlang.org)
 [![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose%20M3-blue.svg)](https://developer.android.com/jetpack/compose)
 [![Offline First](https://img.shields.io/badge/Privacy-100%25%20Offline-brightgreen.svg)](#offline-first--privacy)
+[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
+[![F-Droid](https://img.shields.io/badge/F--Droid-Compatible-3DDC84.svg?logo=fdroid)](FDROID.md)
 [![Download APK](https://img.shields.io/badge/Download%20APK-26%20MB-blue.svg)](app-debug.apk)
 
 **Newaz Land Record Extractor** is a local, evidence-preserving Android application engineered for extracting, validating, and managing Bangladesh land records (Porcha/Khatian, Dag, Mouza, Deeds, Mutation, Dakhila) from PDFs, scanned images, and multi-page camera captures.
@@ -43,6 +45,17 @@ Developed for target repository: **`tapos-py/newaz-lrecord-extractor`**
 4. **ইনস্টল ও ব্যবহার (Install & Open):**
    - **Install** বাটনে ট্যাপ করুন।
    - ইনস্টলেশন শেষ হলে **Open** বাটনে ট্যাপ করে সম্পূর্ণ অফলাইনে ভূমি রেকর্ড ডিজিটাইজেশন শুরু করুন!
+
+---
+
+## 🤖 এফ-ড্রয়েড অ্যাপ স্টোর সামঞ্জস্য (F-Droid App Store Compatibility)
+
+এই অ্যাপ্লিকেশনটি **F-Droid** ওপেন-সোর্স অ্যাপ স্টোরের কঠোর নিয়মাবলীর সাথে শতভাগ সামঞ্জস্যপূর্ণ:
+- **100% Free & Open Source:** সম্পূর্ণ কোডবেস [Apache 2.0 লাইসেন্স](LICENSE)-এর অধীনে উন্মুক্ত।
+- **জিরো ট্র্যাকার ও বিজ্ঞাপন (Zero Trackers/Ads):** কোনো ট্র্যাকিং SDK, বিজ্ঞাপন বা Google Play Services নির্ভরতা নেই।
+- **সম্পূর্ণ অফলাইন (Zero Network Leaks):** কোনো ইন্টারনেট পারমিশন (`INTERNET`) প্রয়োজন নেই।
+- **রেসিপি ও মেটাডাটা:** F-Droid বিল্ড রেসিপি [`metadata/com.aistudio.newazlrecord.kxrtpq.yml`](metadata/com.aistudio.newazlrecord.kxrtpq.yml) এবং Fastlane ডিরেক্টরি প্রস্তুত রয়েছে।
+- **সাবমিশন গাইড:** F-Droid স্টোরে প্রকাশের পূর্ণাঙ্গ নির্দেশিকা দেখুন: [**`FDROID.md`**](FDROID.md)
 
 ---
 

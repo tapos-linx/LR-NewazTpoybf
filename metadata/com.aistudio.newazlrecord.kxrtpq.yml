@@ -1,0 +1,52 @@
+Categories:
+  - Office
+  - Security
+  - Utilities
+License: Apache-2.0
+AuthorName: tapos-py
+AuthorWebSite: https://github.com/tapos-py
+WebSite: https://github.com/tapos-py/newaz-lrecord-extractor
+SourceCode: https://github.com/tapos-py/newaz-lrecord-extractor
+IssueTracker: https://github.com/tapos-py/newaz-lrecord-extractor/issues
+Changelog: https://github.com/tapos-py/newaz-lrecord-extractor/releases
+
+AutoName: Newaz Land Record Extractor
+Summary: Offline evidence-preserving extraction of Bangladesh land records
+Description: |
+    **Newaz Land Record Extractor** is a 100% offline, evidence-preserving Android
+    application engineered for extracting, validating, and managing historical Bangladesh
+    land records (CS, SA, RS, BRS, Porcha/Khatian, Dag, Mouza, Deeds, Mutation, and Dakhila)
+    from multi-page camera captures, scanned images, and PDFs.
+
+    Key Features:
+    * **100% Offline & Private:** Operates entirely locally using an encrypted SQLite/Room
+      database with zero network tracking, telemetry, or external cloud dependencies.
+    * **Bengali & English Tabular OCR:** High-contrast Otsu adaptive binarization and
+      character recognition for weathered historical documents.
+    * **Bangla Handwriting Recognition (HCR):** Extraction and provenance tagging of cursive
+      ink notes, marginalia, and official revenue stamps.
+    * **Cadastral Survey Map Intelligence:** Sub-pixel contour approximation, parcel polygon
+      extraction, Bengali digit plot numbers, road corridors, and water body detection.
+    * **Warishnama Inheritance Matching:** Statutory Muslim and Hindu succession computation
+      (Ana-Ganda-Kranti shares) with cross-matching against ancestor titles and dynamic
+      Cadastral Dag plot highlighting in radiant emerald green.
+    * **Historical Property Atlas:** Century-spanning timeline reconstruction (CS 1910 ->
+      SA 1956 -> RS 1972 -> BS 1998) tracking parcel splits, merges, and area discrepancies.
+    * **Multi-Format Forensic Export:** Standalone generation of court-ready PDF dossiers,
+      Excel XLSX workbooks, GIS GeoJSON layers, and ZIP archives via Scoped Storage.
+
+RepoType: git
+Repo: https://github.com/tapos-py/newaz-lrecord-extractor.git
+
+Builds:
+  - versionName: '1.0'
+    versionCode: 1
+    commit: v1.0.0
+    subdir: app
+    gradle:
+      - yes
+
+AutoUpdateMode: Version v%v
+UpdateCheckMode: Tags
+CurrentVersion: '1.0'
+CurrentVersionCode: 1

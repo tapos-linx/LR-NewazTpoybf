@@ -1,0 +1,7 @@
+Initial production release of Newaz Land Record Extractor v1.0:
+• Complete offline Bengali & English OCR for CS, SA, RS, and BS Khatians
+• Bangla Handwriting Recognition (HCR) with token-level confidence scoring
+• Cadastral Survey Map Intelligence with Dag polygon extraction
+• Warishnama inheritance matching and dynamic Dag plot highlighting
+• Historical Property Atlas with century-spanning timeline reconstruction
+• Multi-format export: PDF court dossiers, Excel XLSX, GeoJSON, and forensic ZIP
