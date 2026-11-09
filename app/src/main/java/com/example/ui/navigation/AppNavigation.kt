@@ -27,10 +27,14 @@ import com.example.ui.screens.hcr.HcrCorrectionScreen
 import com.example.ui.screens.hcr.HcrCorrectionViewModel
 import com.example.ui.screens.matcher.WarishMatcherScreen
 import com.example.ui.screens.matcher.WarishMatcherViewModel
+import com.example.ui.screens.ocr.LandRecordGeminiScreen
+import com.example.ui.screens.ocr.LandRecordGeminiViewModel
+import com.example.ui.screens.tasks.TaskManagerScreen
 import com.example.ui.screens.upload.BulkUploadScreen
 
 object Destinations {
     const val HOME = "home"
+    const val TASK_MANAGER = "task_manager"
     const val CAPTURED_RECORDS = "captured_records"
     const val GALLERY = "gallery"
     const val BULK_UPLOAD = "bulk_upload"
@@ -41,6 +45,7 @@ object Destinations {
     const val CAMERA = "camera"
     const val SAF_IMPORT = "saf_import"
     const val TESSERACT = "tesseract_setup"
+    const val GEMINI_OCR = "gemini_ocr"
 
     fun detailRoute(documentId: String) = "detail/$documentId"
 }
@@ -89,7 +94,21 @@ fun AppNavigation(
                 },
                 onNavigateToAtlas = {
                     navController.navigate(Destinations.ATLAS)
+                },
+                onNavigateToGeminiOcr = {
+                    navController.navigate(Destinations.GEMINI_OCR)
+                },
+                onNavigateToTaskManager = {
+                    navController.navigate(Destinations.TASK_MANAGER)
                 }
+            )
+        }
+
+        composable(Destinations.TASK_MANAGER) {
+            TaskManagerScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onPrimaryTaskClick = { navController.navigate(Destinations.WARISH_MATCHER) },
+                onSecondaryTaskClick = { navController.navigate(Destinations.GEMINI_OCR) }
             )
         }
 
@@ -214,6 +233,14 @@ fun AppNavigation(
             val tesseractViewModel: TesseractSetupViewModel = viewModel()
             TesseractSetupScreen(
                 viewModel = tesseractViewModel,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Destinations.GEMINI_OCR) {
+            val geminiViewModel: LandRecordGeminiViewModel = viewModel()
+            LandRecordGeminiScreen(
+                viewModel = geminiViewModel,
                 onNavigateBack = { navController.popBackStack() }
             )
         }

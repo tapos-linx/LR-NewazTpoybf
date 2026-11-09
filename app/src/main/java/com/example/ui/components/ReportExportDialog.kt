@@ -4,7 +4,6 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,18 +20,19 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FolderSpecial
+import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -47,6 +47,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -60,11 +61,14 @@ fun ReportExportDialog(
     suggestedFileNameJson: String,
     suggestedFileNameText: String,
     suggestedFileNameCsv: String = "",
+    suggestedFileNameZip: String = "",
     jsonPreview: String,
     textPreview: String,
     csvPreview: String = "",
+    zipPreview: String = "",
     initialFormat: ExportFormat = ExportFormat.CSV,
     onSaveToSafUri: (Uri, ExportFormat) -> Unit,
+    onSaveToPhoneDownloads: ((ExportFormat) -> Unit)? = null,
     onShare: (ExportFormat) -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -75,12 +79,12 @@ fun ReportExportDialog(
         ExportFormat.JSON -> suggestedFileNameJson
         ExportFormat.TEXT -> suggestedFileNameText
         ExportFormat.CSV -> if (suggestedFileNameCsv.isNotBlank()) suggestedFileNameCsv else suggestedFileNameText.replace(".txt", ".csv")
+        ExportFormat.ZIP -> if (suggestedFileNameZip.isNotBlank()) suggestedFileNameZip else suggestedFileNameText.replace(".txt", ".zip")
     }
-    val currentMimeType = selectedFormat.mimeType
 
-    // Storage Access Framework CreateDocument launcher
+    // Use "*/*" so dynamic format switching (.csv, .zip, .json, .txt) works seamlessly on PC local disk & SAF
     val safCreateDocumentLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.CreateDocument(currentMimeType)
+        contract = ActivityResultContracts.CreateDocument("*/*")
     ) { uri: Uri? ->
         if (uri != null) {
             onSaveToSafUri(uri, selectedFormat)
@@ -127,9 +131,8 @@ fun ReportExportDialog(
                     color = MaterialTheme.colorScheme.outline
                 )
 
-                // Format selection chips
                 Text(
-                    text = "রিপোর্ট ফরম্যাট নির্বাচন করুন:",
+                    text = "রিপোর্ট ও আর্কাইভ ফরম্যাট নির্বাচন করুন:",
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.SemiBold
                 )
@@ -138,37 +141,63 @@ fun ReportExportDialog(
                     modifier = Modifier
                         .fillMaxWidth()
                         .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     FilterChip(
                         selected = selectedFormat == ExportFormat.CSV,
                         onClick = { selectedFormat = ExportFormat.CSV },
-                        label = { Text("স্প্রেডশিট CSV (.csv)") },
-                        leadingIcon = {
-                            Icon(Icons.Default.TableChart, contentDescription = null, modifier = Modifier.size(16.dp))
-                        },
+                        label = { Text("CSV (.csv)", fontSize = 11.sp) },
                         modifier = Modifier.testTag("chip_export_csv")
                     )
 
                     FilterChip(
                         selected = selectedFormat == ExportFormat.JSON,
                         onClick = { selectedFormat = ExportFormat.JSON },
-                        label = { Text("JSON (.json)") },
-                        leadingIcon = {
-                            Icon(Icons.Default.Code, contentDescription = null, modifier = Modifier.size(16.dp))
-                        },
+                        label = { Text("JSON (.json)", fontSize = 11.sp) },
                         modifier = Modifier.testTag("chip_export_json")
                     )
 
                     FilterChip(
                         selected = selectedFormat == ExportFormat.TEXT,
                         onClick = { selectedFormat = ExportFormat.TEXT },
-                        label = { Text("টেক্সট (.txt)") },
-                        leadingIcon = {
-                            Icon(Icons.Default.Description, contentDescription = null, modifier = Modifier.size(16.dp))
-                        },
+                        label = { Text("টেক্সট (.txt)", fontSize = 11.sp) },
                         modifier = Modifier.testTag("chip_export_text")
                     )
+
+                    FilterChip(
+                        selected = selectedFormat == ExportFormat.ZIP,
+                        onClick = { selectedFormat = ExportFormat.ZIP },
+                        label = { Text("ZIP (.zip)", fontSize = 11.sp) },
+                        modifier = Modifier.testTag("chip_export_zip")
+                    )
+                }
+
+                // Suggested filename info (above the fold)
+                Text(
+                    text = "প্রস্তাবিত নাম: $currentSuggestedFileName",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontFamily = FontFamily.Monospace,
+                    color = MaterialTheme.colorScheme.secondary
+                )
+
+                // Direct Phone Memory Download button
+                if (onSaveToPhoneDownloads != null) {
+                    Button(
+                        onClick = { onSaveToPhoneDownloads(selectedFormat) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("btn_save_phone_downloads"),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A)),
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.PhoneAndroid, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "ফোন মেমোরি (Downloads) ফোল্ডারে সরাসরি ডাউনলোড",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp
+                        )
+                    }
                 }
 
                 // Storage Access Framework description note
@@ -177,31 +206,23 @@ fun ReportExportDialog(
                     shape = RoundedCornerShape(8.dp),
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Column(modifier = Modifier.padding(10.dp)) {
+                    Column(modifier = Modifier.padding(8.dp)) {
                         Text(
-                            text = "📁 Storage Access Framework (SAF)",
+                            text = "💻 পিসি লোকাল ডিস্ক ও ফোন মেমোরি (SAF / MediaStore)",
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.Bold,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                         Spacer(modifier = Modifier.height(2.dp))
                         Text(
-                            text = "ডিভাইসের যে কোনো ফোল্ডারে (ডাউনলোড, এসডি কার্ড, ড্রাইভ) সরাসরি সেভ করতে পারবেন। CSV ফাইল এক্সেল ও গুগল শিটসে সরাসরি খোলা যাবে।",
+                            text = "ফোন মেমোরির Downloads/NewazLandRecords ফোল্ডারে সরাসরি ডাউনলোড করুন অথবা পিসির লোকাল ডিস্ক / ফোল্ডারে সেভ করুন।",
                             style = MaterialTheme.typography.bodySmall,
                             fontSize = 11.sp,
-                            lineHeight = 15.sp,
+                            lineHeight = 14.sp,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
                     }
                 }
-
-                // Suggested filename info
-                Text(
-                    text = "প্রস্তাবিত নাম: $currentSuggestedFileName",
-                    style = MaterialTheme.typography.labelSmall,
-                    fontFamily = FontFamily.Monospace,
-                    color = MaterialTheme.colorScheme.secondary
-                )
 
                 // Preview toggle
                 Row(
@@ -223,7 +244,7 @@ fun ReportExportDialog(
                     Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 200.dp),
+                            .heightIn(max = 180.dp),
                         color = MaterialTheme.colorScheme.surfaceVariant,
                         shape = RoundedCornerShape(8.dp)
                     ) {
@@ -231,6 +252,7 @@ fun ReportExportDialog(
                             ExportFormat.JSON -> jsonPreview
                             ExportFormat.TEXT -> textPreview
                             ExportFormat.CSV -> csvPreview
+                            ExportFormat.ZIP -> if (zipPreview.isNotBlank()) zipPreview else "📦 সম্পূর্ণ আর্কাইভ বান্ডেল ($currentSuggestedFileName)\nঅন্তর্ভুক্ত: মূল নথি, CSV, JSON ও সারসংক্ষেপ রিপোর্ট।"
                         }
                         Box(
                             modifier = Modifier

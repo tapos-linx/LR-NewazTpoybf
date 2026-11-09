@@ -1,8 +1,12 @@
 package com.example.domain.export
 
+import android.content.ContentValues
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.provider.MediaStore
 import androidx.core.content.FileProvider
 import com.example.data.local.entity.DocumentPageEntity
 import com.example.data.local.entity.LandDocumentEntity
@@ -11,17 +15,21 @@ import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
 enum class ExportFormat(val extension: String, val mimeType: String, val displayName: String) {
+    CSV("csv", "text/csv", "স্প্রেডশিট CSV ফাইল (.csv)"),
+    ZIP("zip", "application/zip", "সম্পূর্ণ আর্কাইভ ZIP বান্ডেল (.zip)"),
     JSON("json", "application/json", "স্ট্রাকচার্ড JSON ফাইল (.json)"),
-    TEXT("txt", "text/plain", "টেক্সট সারসংক্ষেপ রিপোর্ট (.txt)"),
-    CSV("csv", "text/csv", "স্প্রেডশিট CSV ফাইল (.csv)")
+    TEXT("txt", "text/plain", "টেক্সট সারসংক্ষেপ রিপোর্ট (.txt)")
 }
 
 object ReportExportManager {
@@ -317,23 +325,179 @@ object ReportExportManager {
 
     /**
      * Streams content string to the user-selected local destination Uri
-     * using the Android Storage Access Framework (SAF).
+     * using the Android Storage Access Framework (SAF) or PC local disk bridge.
      */
     suspend fun writeContentToSafUri(
         context: Context,
         uri: Uri,
         content: String
+    ): Result<Unit> = writeBytesToSafUri(context, uri, content.toByteArray(Charsets.UTF_8))
+
+    /**
+     * Streams raw binary bytes (such as a .zip bundle or UTF-8 report) to a SAF Uri.
+     */
+    suspend fun writeBytesToSafUri(
+        context: Context,
+        uri: Uri,
+        bytes: ByteArray
     ): Result<Unit> = withContext(Dispatchers.IO) {
         runCatching {
-            context.contentResolver.openOutputStream(uri, "wt")?.use { out ->
-                out.write(content.toByteArray(Charsets.UTF_8))
+            val stream = try {
+                context.contentResolver.openOutputStream(uri)
+            } catch (_: Exception) {
+                context.contentResolver.openOutputStream(uri, "w")
+            }
+            stream?.use { out ->
+                out.write(bytes)
                 out.flush()
             } ?: throw IOException("Could not open output stream for SAF Uri: $uri")
         }
     }
 
     /**
-     * Suggests a descriptive filename for saving via Storage Access Framework.
+     * Directly saves binary or text files into the phone's public Downloads/NewazLandRecords folder
+     * using MediaStore.Downloads (API 29+) with zero storage permissions required, and falls back to
+     * Environment.DIRECTORY_DOWNLOADS on legacy APIs.
+     * Returns the human-readable saved path.
+     */
+    suspend fun saveBytesToPhoneDownloads(
+        context: Context,
+        fileName: String,
+        mimeType: String,
+        bytes: ByteArray
+    ): Result<String> = withContext(Dispatchers.IO) {
+        runCatching {
+            val subFolder = "NewazLandRecords"
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                val resolver = context.contentResolver
+                val contentValues = ContentValues().apply {
+                    put(MediaStore.Downloads.DISPLAY_NAME, fileName)
+                    put(MediaStore.Downloads.MIME_TYPE, mimeType)
+                    put(MediaStore.Downloads.RELATIVE_PATH, "${Environment.DIRECTORY_DOWNLOADS}/$subFolder")
+                    put(MediaStore.Downloads.IS_PENDING, 1)
+                }
+                val itemUri = resolver.insert(MediaStore.Downloads.EXTERNAL_CONTENT_URI, contentValues)
+                    ?: throw IOException("MediaStore.Downloads এ ফাইল তৈরি করা যায়নি")
+
+                resolver.openOutputStream(itemUri)?.use { out ->
+                    out.write(bytes)
+                    out.flush()
+                } ?: throw IOException("Downloads আউটপুট স্ট্রিম খোলা যায়নি")
+
+                val doneValues = ContentValues().apply {
+                    put(MediaStore.Downloads.IS_PENDING, 0)
+                }
+                resolver.update(itemUri, doneValues, null, null)
+                "Downloads/$subFolder/$fileName"
+            } else {
+                @Suppress("DEPRECATION")
+                val publicDownloads = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOWNLOADS)
+                val targetDir = File(publicDownloads, subFolder)
+                if (!targetDir.exists()) targetDir.mkdirs()
+                val outFile = File(targetDir, fileName)
+                FileOutputStream(outFile).use { out ->
+                    out.write(bytes)
+                    out.flush()
+                }
+                outFile.absolutePath
+            }
+        }.recoverCatching {
+            // Fallback to app external files Downloads directory if public MediaStore is restricted
+            val fallbackDir = File(context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS), "NewazLandRecords")
+            if (!fallbackDir.exists()) fallbackDir.mkdirs()
+            val outFile = File(fallbackDir, fileName)
+            FileOutputStream(outFile).use { out ->
+                out.write(bytes)
+                out.flush()
+            }
+            outFile.absolutePath
+        }
+    }
+
+    suspend fun saveTextToPhoneDownloads(
+        context: Context,
+        fileName: String,
+        mimeType: String,
+        content: String
+    ): Result<String> = saveBytesToPhoneDownloads(
+        context = context,
+        fileName = fileName,
+        mimeType = mimeType,
+        bytes = content.toByteArray(Charsets.UTF_8)
+    )
+
+    /**
+     * Builds a complete forensic ZIP archive in bytes containing:
+     * 1. AUDIT_MANIFEST.csv (All Room documents metadata)
+     * 2. land_records_detailed.csv (All parsed fields & owners)
+     * 3. land_records_full.json (Full structured JSON)
+     * 4. land_records_summary.txt (Human-readable Bengali legal report)
+     * 5. Original & preprocessed document files/pages under documents/
+     */
+    suspend fun buildFullMassExportZipBytes(
+        context: Context,
+        documents: List<LandDocumentEntity>,
+        records: List<Pair<LandDocumentEntity, LandRecordData>>
+    ): ByteArray = withContext(Dispatchers.IO) {
+        val baos = ByteArrayOutputStream()
+        val addedEntries = mutableSetOf<String>()
+
+        fun putSafeEntry(zos: ZipOutputStream, name: String, data: ByteArray) {
+            if (addedEntries.add(name)) {
+                zos.putNextEntry(ZipEntry(name))
+                zos.write(data)
+                zos.closeEntry()
+            }
+        }
+
+        ZipOutputStream(baos).use { zos ->
+            val manifestCsv = buildDocumentsCsvContent(documents)
+            putSafeEntry(zos, "AUDIT_MANIFEST.csv", manifestCsv.toByteArray(Charsets.UTF_8))
+
+            val detailedCsv = buildBatchCsvContent(records)
+            putSafeEntry(zos, "land_records_detailed.csv", detailedCsv.toByteArray(Charsets.UTF_8))
+
+            val fullJson = buildBatchJsonReportContent(records)
+            putSafeEntry(zos, "land_records_full.json", fullJson.toByteArray(Charsets.UTF_8))
+
+            val summaryTxt = buildBatchTextSummaryContent(records)
+            putSafeEntry(zos, "land_records_summary.txt", summaryTxt.toByteArray(Charsets.UTF_8))
+
+            val buffer = ByteArray(8192)
+            for ((doc, data) in records) {
+                val safeTitle = doc.title.replace(Regex("[^a-zA-Z0-9._\\-\\u0980-\\u09FF]"), "_").take(40)
+                val folderPrefix = "documents/${safeTitle}_${doc.id.take(6)}"
+
+                val singleTxt = buildTextSummaryContent(doc, data)
+                putSafeEntry(zos, "$folderPrefix/report_${safeTitle}.txt", singleTxt.toByteArray(Charsets.UTF_8))
+
+                val singleHtml = buildHtmlDossierContent(doc, data)
+                putSafeEntry(zos, "$folderPrefix/dossier_${safeTitle}.html", singleHtml.toByteArray(Charsets.UTF_8))
+
+                val recordDir = File(context.filesDir, "records/${doc.id}")
+                if (recordDir.exists() && recordDir.isDirectory) {
+                    recordDir.walkTopDown().filter { it.isFile }.forEach { file ->
+                        val relPath = file.relativeTo(recordDir).path.replace("\\", "/")
+                        val entryName = "$folderPrefix/$relPath"
+                        if (addedEntries.add(entryName)) {
+                            zos.putNextEntry(ZipEntry(entryName))
+                            file.inputStream().use { fis ->
+                                var len: Int
+                                while (fis.read(buffer).also { len = it } > 0) {
+                                    zos.write(buffer, 0, len)
+                                }
+                            }
+                            zos.closeEntry()
+                        }
+                    }
+                }
+            }
+        }
+        baos.toByteArray()
+    }
+
+    /**
+     * Suggests a descriptive filename for saving via Storage Access Framework or MediaStore.Downloads.
      */
     fun suggestFileName(
         doc: LandDocumentEntity?,
@@ -342,16 +506,16 @@ object ReportExportManager {
         val timestamp = SimpleDateFormat("yyyyMMdd_HHmm", Locale.US).format(Date())
         return if (doc != null) {
             val khatian = doc.primaryKhatianNo?.replace(Regex("[^0-9a-zA-Z\\u0980-\\u09FF]"), "") ?: "record"
-            if (format == ExportFormat.CSV) {
-                "khatian_${khatian}_metadata_$timestamp.csv"
-            } else {
-                "khatian_${khatian}_report_$timestamp.${format.extension}"
+            when (format) {
+                ExportFormat.CSV -> "khatian_${khatian}_metadata_$timestamp.csv"
+                ExportFormat.ZIP -> "khatian_${khatian}_bundle_$timestamp.zip"
+                else -> "khatian_${khatian}_report_$timestamp.${format.extension}"
             }
         } else {
-            if (format == ExportFormat.CSV) {
-                "land_records_metadata_$timestamp.csv"
-            } else {
-                "land_records_summary_$timestamp.${format.extension}"
+            when (format) {
+                ExportFormat.CSV -> "land_records_metadata_$timestamp.csv"
+                ExportFormat.ZIP -> "LRgetBD_Mass_Archive_$timestamp.zip"
+                else -> "land_records_summary_$timestamp.${format.extension}"
             }
         }
     }

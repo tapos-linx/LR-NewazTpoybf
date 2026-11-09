@@ -1,6 +1,11 @@
 package com.example.ui.theme
 
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
 // Light Scheme
 val PrimaryGreen = Color(0xFF144D37)
@@ -59,3 +64,57 @@ val StatusUncertain = Color(0xFFDC2626)
 val StatusInfo = Color(0xFF2563EB)
 val ParchmentPaper = Color(0xFFFAF7F0)
 val SepiaBrown = Color(0xFF5D4037)
+
+// Glowing Card & Date Slider Design Palette
+val BrandIndigo = Color(0xFF5B4DBC)
+val AccentPink = Color(0xFFF06292)
+val BackgroundWhite = Color(0xFFFFFFFF)
+val TextPrimaryDark = Color(0xFF1A1C29)
+val TextSecondaryMuted = Color(0xFF8E92A4)
+val WhiteTransparent20 = Color.White.copy(alpha = 0.20f)
+
+/**
+ * Custom ambient colored glow modifier using native Paint shadow layer.
+ * Apply before .background(...) so the soft colored shadow renders beneath the shape.
+ */
+fun Modifier.coloredGlow(
+    color: Color,
+    alpha: Float = 0.25f,
+    borderRadius: Dp = 24.dp,
+    blurRadius: Dp = 20.dp,
+    offsetY: Dp = 10.dp,
+    offsetX: Dp = 0.dp
+): Modifier = this.then(
+    Modifier.drawBehind {
+        val shadowColor = color.copy(alpha = alpha).let {
+            android.graphics.Color.argb(
+                (it.alpha * 255).toInt().coerceIn(0, 255),
+                (it.red * 255).toInt().coerceIn(0, 255),
+                (it.green * 255).toInt().coerceIn(0, 255),
+                (it.blue * 255).toInt().coerceIn(0, 255)
+            )
+        }
+        drawContext.canvas.nativeCanvas.apply {
+            val paint = android.graphics.Paint().apply {
+                isAntiAlias = true
+                this.color = android.graphics.Color.TRANSPARENT
+                setShadowLayer(
+                    blurRadius.toPx(),
+                    offsetX.toPx(),
+                    offsetY.toPx(),
+                    shadowColor
+                )
+            }
+            drawRoundRect(
+                0f,
+                0f,
+                size.width,
+                size.height,
+                borderRadius.toPx(),
+                borderRadius.toPx(),
+                paint
+            )
+        }
+    }
+)
+

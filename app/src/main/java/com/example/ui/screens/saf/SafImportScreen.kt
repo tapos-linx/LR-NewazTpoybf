@@ -83,6 +83,15 @@ fun SafImportScreen(
         }
     }
 
+    // Multi-file & ZIP Picker Launcher (works for PC Local Disk, Browser Emulator, and Phone Downloads)
+    val multiFilePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            viewModel.scanMultipleFiles(uris)
+        }
+    }
+
     Scaffold(
         modifier = Modifier
             .fillMaxSize()
@@ -92,12 +101,12 @@ fun SafImportScreen(
                 title = {
                     Column {
                         Text(
-                            text = "ইনপুট ফোল্ডার স্ক্যান (SAF)",
+                            text = "ইনপুট ফোল্ডার ও বাল্ক ফাইল স্ক্যান (SAF)",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "নেস্টেড ক্যাটাগরি ফোল্ডার ও ফাইল অনুসন্ধান",
+                            text = "পিসি লোকাল ডিস্ক, ফোন মেমোরি ও ফোল্ডার অনুসন্ধান",
                             style = MaterialTheme.typography.bodySmall,
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
@@ -178,7 +187,7 @@ fun SafImportScreen(
         ) {
             LegalDisclaimerBanner(modifier = Modifier.padding(14.dp))
 
-            // Select Root Directory Card
+            // Select Root Directory or Multiple Files Card
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -197,30 +206,67 @@ fun SafImportScreen(
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text(
-                                text = "মূল ইনপুট ডিরেক্টরি নির্বাচন",
+                                text = "পিসি লোকাল ডিস্ক, ফোন মেমোরি বা ফোল্ডার নির্বাচন",
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold
                             )
                             Text(
-                                text = "যেমন: LandRecords/input/ (CS, SA, RS, tituwhatsapp ইত্যাদি)",
+                                text = "একাধিক PDF, ছবি, .ZIP আর্কাইভ বা সম্পূর্ণ ফোল্ডার (CS, SA, RS, BRS) নির্বাচন করুন",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(14.dp))
+                    Spacer(modifier = Modifier.height(12.dp))
 
-                    Button(
-                        onClick = { folderPickerLauncher.launch(null) },
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = { multiFilePickerLauncher.launch(arrayOf("*/*")) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("btn_select_multiple_files_saf"),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                        ) {
+                            Icon(Icons.Default.FolderOpen, contentDescription = null)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("ফাইল / ZIP নির্বাচন", fontSize = 12.sp)
+                        }
+
+                        Button(
+                            onClick = { folderPickerLauncher.launch(null) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("btn_select_folder"),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                        ) {
+                            Icon(Icons.Default.FolderOpen, contentDescription = null)
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("ফোল্ডার ব্রাউজ (SAF)", fontSize = 12.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            viewModel.downloadAllToPhoneMemory(com.example.domain.export.ExportFormat.ZIP) { _, msg ->
+                                Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                            }
+                        },
+                        enabled = !uiState.isExporting,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .testTag("btn_select_folder"),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                            .testTag("btn_saf_download_phone_zip")
                     ) {
-                        Icon(Icons.Default.FolderOpen, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("ফোল্ডার ব্রাউজ করুন (SAF)")
+                        Text(
+                            text = "📥 ফোন মেমোরি (Downloads)-এ সকল নথির ZIP ডাউনলোড করুন",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
+                        )
                     }
                 }
             }

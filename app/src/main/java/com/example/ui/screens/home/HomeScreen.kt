@@ -32,6 +32,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
@@ -89,9 +90,13 @@ import com.example.data.local.entity.LandDocumentEntity
 import com.example.data.model.ConfidenceLevel
 import com.example.domain.export.ExportFormat
 import com.example.domain.export.ReportExportManager
+import com.example.ui.components.CalendarDate
+import com.example.ui.components.DateSlider
 import com.example.ui.components.FieldConfidenceChip
 import com.example.ui.components.LegalDisclaimerBanner
+import com.example.ui.components.PrimaryIndigoCard
 import com.example.ui.components.ReportExportDialog
+import com.example.ui.components.SecondaryTaskCard
 import com.example.ui.screens.home.components.CapturedRecordCard
 import com.example.ui.theme.ParchmentPaper
 import com.example.ui.theme.StatusProbable
@@ -111,17 +116,25 @@ fun HomeScreen(
     onNavigateToBulkUpload: (() -> Unit)? = null,
     onNavigateToWarishMatcher: (() -> Unit)? = null,
     onNavigateToHcr: (() -> Unit)? = null,
-    onNavigateToAtlas: (() -> Unit)? = null
+    onNavigateToAtlas: (() -> Unit)? = null,
+    onNavigateToGeminiOcr: (() -> Unit)? = null,
+    onNavigateToTaskManager: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
 
-    // SAF file picker for manual file import
+    // SAF file picker for manual / mass file import (PDF, Images, ZIP, CSV)
     val filePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris: List<Uri> ->
         if (uris.isNotEmpty()) {
-            viewModel.importFilesFromUris(uris)
+            viewModel.importFilesFromUris(uris) { count ->
+                Toast.makeText(
+                    context,
+                    "পিসি / ফোন মেমোরি থেকে $count টি নথি সফলভাবে আপলোড হয়েছে",
+                    Toast.LENGTH_LONG
+                ).show()
+            }
         }
     }
 
@@ -150,6 +163,18 @@ fun HomeScreen(
                     }
                 },
                 actions = {
+                    if (onNavigateToGeminiOcr != null) {
+                        IconButton(
+                            onClick = onNavigateToGeminiOcr,
+                            modifier = Modifier.testTag("btn_gemini_ocr_nav")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = "Gemini AI অপটিক্যাল স্ক্যানার",
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
+                    }
                     if (onNavigateToWarishMatcher != null) {
                         IconButton(
                             onClick = onNavigateToWarishMatcher,
@@ -585,44 +610,112 @@ fun HomeScreen(
                 }
             }
 
-            // Document List
-            if (uiState.filteredDocuments.isEmpty()) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(24.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(
-                            imageVector = Icons.Default.Description,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.size(64.dp)
+            val weekDates = remember {
+                listOf(
+                    CalendarDate("Mon", "10"),
+                    CalendarDate("Tue", "11"),
+                    CalendarDate("Wed", "12"), // Active default
+                    CalendarDate("Thu", "13"),
+                    CalendarDate("Fri", "14")
+                )
+            }
+            var selectedDateIndex by remember { mutableStateOf(2) }
+
+            // Document List + Daily Schedule Cards
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .testTag("captured_records_lazy_column")
+                    .testTag("captured_records_list"),
+                contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 100.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                item(key = "schedule_date_slider_section") {
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Task Schedule (${weekDates[selectedDateIndex].dayOfWeek} ${weekDates[selectedDateIndex].dayOfMonth})",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
+                            )
+                            if (onNavigateToTaskManager != null) {
+                                TextButton(
+                                    onClick = onNavigateToTaskManager,
+                                    modifier = Modifier.testTag("btn_open_task_manager")
+                                ) {
+                                    Text(
+                                        text = "Task Manager খুলুন",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+
+                        DateSlider(
+                            dates = weekDates,
+                            selectedIndex = selectedDateIndex,
+                            onDateSelected = { newIndex ->
+                                selectedDateIndex = newIndex
+                            },
+                            modifier = Modifier.fillMaxWidth()
                         )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = if (uiState.searchQuery.isNotBlank()) "কোনো নথি খুঁজে পাওয়া যায়নি" else "কোনো ভূমি রেকর্ড নথি নেই",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+
+                        PrimaryIndigoCard(
+                            timeRange = "10:00 AM - 12:30 PM",
+                            taskTitle = "ওয়ারিশ সনদ ও আরএস খতিয়ান যাচাই (${weekDates[selectedDateIndex].dayOfWeek} ${weekDates[selectedDateIndex].dayOfMonth})",
+                            subtitle = "কাইতলা (দক্ষিণ) ইউনিয়ন • ৮টি মাস্টার সনদ ও মৌজা দাগ",
+                            categoryBadgeText = "Verification",
+                            onMenuClick = { (onNavigateToTaskManager ?: onNavigateToWarishMatcher)?.invoke() }
                         )
-                        Text(
-                            text = "উপরের বাটন চেপে ক্যামেরা দিয়ে পাতা স্ক্যান করুন অথবা SAF ফোল্ডার যুক্ত করুন",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.padding(top = 4.dp)
+
+                        SecondaryTaskCard(
+                            timeRange = "1:30 PM - 3:00 PM",
+                            taskTitle = "UI Design",
+                            categoryBadgeText = "Design",
+                            onMenuClick = { (onNavigateToTaskManager ?: onNavigateToGeminiOcr)?.invoke() }
                         )
                     }
                 }
-            } else {
-                LazyColumn(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .testTag("captured_records_lazy_column")
-                        .testTag("captured_records_list"),
-                    contentPadding = PaddingValues(start = 14.dp, end = 14.dp, top = 6.dp, bottom = 100.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
+
+                if (uiState.filteredDocuments.isEmpty()) {
+                    item(key = "empty_documents_placeholder") {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Default.Description,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.outline,
+                                    modifier = Modifier.size(64.dp)
+                                )
+                                Spacer(modifier = Modifier.height(12.dp))
+                                Text(
+                                    text = if (uiState.searchQuery.isNotBlank()) "কোনো নথি খুঁজে পাওয়া যায়নি" else "কোনো ভূমি রেকর্ড নথি নেই",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(
+                                    text = "উপরের বাটন চেপে ক্যামেরা দিয়ে পাতা স্ক্যান করুন অথবা SAF ফোল্ডার যুক্ত করুন",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.outline,
+                                    modifier = Modifier.padding(top = 4.dp)
+                                )
+                            }
+                        }
+                    }
+                } else {
                     items(
                         items = uiState.filteredDocuments,
                         key = { it.id }
@@ -669,25 +762,25 @@ fun HomeScreen(
             suggestedFileNameJson = viewModel.suggestBatchFileName(ExportFormat.JSON),
             suggestedFileNameText = viewModel.suggestBatchFileName(ExportFormat.TEXT),
             suggestedFileNameCsv = viewModel.suggestBatchFileName(ExportFormat.CSV),
+            suggestedFileNameZip = viewModel.suggestBatchFileName(ExportFormat.ZIP),
             jsonPreview = viewModel.getBatchPreviewContent(ExportFormat.JSON),
             textPreview = viewModel.getBatchPreviewContent(ExportFormat.TEXT),
             csvPreview = viewModel.getBatchPreviewContent(ExportFormat.CSV),
+            zipPreview = viewModel.getBatchPreviewContent(ExportFormat.ZIP),
             initialFormat = ExportFormat.CSV,
             onSaveToSafUri = { uri, format ->
-                viewModel.saveBatchReportToSafUri(uri, format) { success, msg ->
+                viewModel.saveBatchReportToSafUri(uri, format) { _, msg ->
+                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                }
+            },
+            onSaveToPhoneDownloads = { format ->
+                viewModel.saveBatchReportToPhoneDownloads(format) { _, msg ->
                     Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                 }
             },
             onShare = { format ->
                 viewModel.setShowExportBatchDialog(false)
-                viewModel.exportAllToCsv { file ->
-                    ReportExportManager.shareFile(
-                        context = context,
-                        file = file,
-                        mimeType = if (format == ExportFormat.CSV) "text/csv" else format.mimeType,
-                        subject = "বাংলাদেশ ভূমি রেকর্ডসমূহ সামগ্রিক CSV মেটাডাটা রিপোর্ট"
-                    )
-                }
+                viewModel.shareBatchReport(format)
             },
             onDismiss = { viewModel.setShowExportBatchDialog(false) }
         )

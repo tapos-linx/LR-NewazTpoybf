@@ -43,12 +43,44 @@ fun BulkUploadScreen(
     onUploadComplete: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
 
-    // SAF Folder Tree Picker for unlimited recursive directory upload
+    // 1. Multi-File & ZIP Picker (works for PC Local Disk, Browser Emulator, Phone Downloads & SD Card)
+    val multiFilePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            viewModel.scanMultipleFiles(uris)
+        }
+    }
+
+    // 2. SAF Folder Tree Picker for recursive directory upload
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri: Uri? ->
         uri?.let { viewModel.scanFolderTree(it) }
+    }
+
+    // 3. SAF Save ZIP to PC Local Disk / Custom Folder
+    val safSaveZipLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/zip")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.saveAllToSafUri(uri, com.example.domain.export.ExportFormat.ZIP) { _, msg ->
+                android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    // 4. SAF Save CSV to PC Local Disk / Custom Folder
+    val safSaveCsvLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/csv")
+    ) { uri: Uri? ->
+        if (uri != null) {
+            viewModel.saveAllToSafUri(uri, com.example.domain.export.ExportFormat.CSV) { _, msg ->
+                android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+            }
+        }
     }
 
     Scaffold(
@@ -60,13 +92,13 @@ fun BulkUploadScreen(
                 title = {
                     Column {
                         Text(
-                            text = "বাল্ক আপলোড ও প্রসেসিং কিউ",
+                            text = "বাল্ক আপলোড ও মাস ডাউনলোড হাব",
                             style = MaterialTheme.typography.titleLarge,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp
+                            fontSize = 17.sp
                         )
                         Text(
-                            text = "LR-NewazTpoybf • জিরো-ডাটা-লস ইঞ্জিন",
+                            text = "পিসি লোকাল ডিস্ক ও ফোন মেমোরি (Downloads) ইঞ্জিন",
                             style = MaterialTheme.typography.bodySmall,
                             fontSize = 11.sp,
                             color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.85f)
@@ -96,14 +128,14 @@ fun BulkUploadScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues)
-                .padding(horizontal = 14.dp, vertical = 10.dp)
+                .padding(horizontal = 14.dp, vertical = 8.dp)
         ) {
-            // Folder Selector & Upload Trigger Card
+            // Mass Upload Card (Multi-file + ZIP + Folder)
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
                     .testTag("bulk_upload_card"),
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(14.dp),
                 colors = CardDefaults.cardColors(
                     containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                 )
@@ -111,36 +143,43 @@ fun BulkUploadScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(14.dp),
+                        .padding(12.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Icon(
-                        imageVector = Icons.Default.UploadFile,
-                        contentDescription = "Upload Cloud",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(44.dp)
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Text(
-                        text = "হাজার হাজার ঐতিহাসিক নথি সরাসরি আপলোড করুন",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "ফোল্ডার রিকার্শনের মাধ্যমে স্বয়ংক্রিয় ফাইল শনাক্তকরণ ও হ্যাশ ভেরিফিকেশন",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                        fontSize = 11.sp
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.UploadFile,
+                            contentDescription = "Upload Cloud",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(28.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "১. বাল্ক আপলোড (পিসি লোকাল ডিস্ক ও ফোন মেমোরি)",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "একাধিক PDF, ছবি, বা সম্পূর্ণ .ZIP ফাইল ও ফোল্ডার একসাথে আপলোড করুন",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.outline,
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Accepted File Format Chips
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.Center
                     ) {
-                        listOf("PDF", "JPG", "PNG", "TIFF", "DOCX", "XLSX", "ZIP", "MAPS").forEach { fmt ->
+                        listOf("PDF", "JPG", "PNG", "TIFF", "ZIP", "CSV", "DOCX", "XLSX").forEach { fmt ->
                             Surface(
                                 shape = RoundedCornerShape(6.dp),
                                 color = MaterialTheme.colorScheme.surface,
@@ -158,27 +197,189 @@ fun BulkUploadScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
-                    Button(
-                        onClick = { folderPickerLauncher.launch(null) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp)
-                            .testTag("btn_select_upload_folder"),
-                        shape = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary
-                        )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Icon(Icons.Default.FolderOpen, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("ফোল্ডার নির্বাচন করুন (রিকার্সিভ স্ক্যান)", fontWeight = FontWeight.Bold)
+                        Button(
+                            onClick = { multiFilePickerLauncher.launch(arrayOf("*/*")) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("btn_select_multiple_files"),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = MaterialTheme.colorScheme.primary
+                            )
+                        ) {
+                            Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("ফাইল / ZIP নির্বাচন", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+
+                        OutlinedButton(
+                            onClick = { folderPickerLauncher.launch(null) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("btn_select_upload_folder"),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.FolderOpen, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("ফোল্ডার স্ক্যান", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
+            Spacer(modifier = Modifier.height(8.dp))
+
+            // Mass Download Card (Phone Memory Downloads + PC Local Disk SAF)
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("mass_download_card"),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f)
+                )
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp)
+                ) {
+                    Text(
+                        text = "২. বাল্ক ডাউনলোড (ফোন মেমোরি Downloads ও পিসি লোকাল ডিস্ক)",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                viewModel.downloadAllToPhoneMemory(com.example.domain.export.ExportFormat.ZIP) { _, msg ->
+                                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                                }
+                            },
+                            enabled = !uiState.isExporting,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("btn_mass_download_phone_zip"),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF16A34A))
+                        ) {
+                            Icon(Icons.Default.PhoneAndroid, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("ফোনে ZIP ডাউনলোড", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+
+                        Button(
+                            onClick = {
+                                safSaveZipLauncher.launch(viewModel.suggestExportFileName(com.example.domain.export.ExportFormat.ZIP))
+                            },
+                            enabled = !uiState.isExporting,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                                .testTag("btn_mass_download_pc_zip"),
+                            shape = RoundedCornerShape(10.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                        ) {
+                            Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("পিসিতে ZIP সেভ", fontWeight = FontWeight.Bold, fontSize = 11.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                viewModel.downloadAllToPhoneMemory(com.example.domain.export.ExportFormat.CSV) { _, msg ->
+                                    android.widget.Toast.makeText(context, msg, android.widget.Toast.LENGTH_LONG).show()
+                                }
+                            },
+                            enabled = !uiState.isExporting,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp)
+                                .testTag("btn_mass_download_phone_csv"),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.TableChart, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("ফোনে CSV ডাউনলোড", fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                safSaveCsvLauncher.launch(viewModel.suggestExportFileName(com.example.domain.export.ExportFormat.CSV))
+                            },
+                            enabled = !uiState.isExporting,
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(44.dp)
+                                .testTag("btn_mass_download_pc_csv"),
+                            shape = RoundedCornerShape(10.dp)
+                        ) {
+                            Icon(Icons.Default.SaveAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("পিসিতে CSV সেভ", fontWeight = FontWeight.SemiBold, fontSize = 11.sp)
+                        }
+                    }
+                }
+            }
+
+            // Status / Error Banner
+            uiState.statusMessage?.let { statusMsg ->
+                Spacer(modifier = Modifier.height(6.dp))
+                Surface(
+                    color = StatusVerified.copy(alpha = 0.15f),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = statusMsg,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = StatusVerified,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
+            }
+
+            uiState.errorMessage?.let { errMsg ->
+                Spacer(modifier = Modifier.height(6.dp))
+                Surface(
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(
+                        text = errMsg,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(8.dp))
 
             // Real-Time Queue & Scan Summary
             val summary = uiState.scanSummary

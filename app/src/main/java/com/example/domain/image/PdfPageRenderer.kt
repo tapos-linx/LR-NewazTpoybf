@@ -38,37 +38,50 @@ object PdfPageRenderer {
         val pageFiles = mutableListOf<File>()
 
         parcelFileDescriptor.use { pfd ->
-            val pdfRenderer = PdfRenderer(pfd)
-            val pageCount = pdfRenderer.pageCount
+            try {
+                val pdfRenderer = PdfRenderer(pfd)
+                val pageCount = pdfRenderer.pageCount
 
-            for (pageIndex in 0 until pageCount) {
-                val page = pdfRenderer.openPage(pageIndex)
+                for (pageIndex in 0 until pageCount) {
+                    val page = pdfRenderer.openPage(pageIndex)
 
-                // Maintain aspect ratio with high resolution target width
-                val scale = targetWidth.toFloat() / page.width
-                val targetHeight = (page.height * scale).toInt()
+                    // Maintain aspect ratio with high resolution target width
+                    val scale = targetWidth.toFloat() / page.width.coerceAtLeast(1)
+                    val targetHeight = (page.height * scale).toInt().coerceAtLeast(1)
 
-                val bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
-                // White background for transparent PDF pages
-                bitmap.eraseColor(Color.WHITE)
+                    val bitmap = Bitmap.createBitmap(targetWidth, targetHeight, Bitmap.Config.ARGB_8888)
+                    // White background for transparent PDF pages
+                    bitmap.eraseColor(Color.WHITE)
 
-                page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
-                page.close()
+                    page.render(bitmap, null, null, PdfRenderer.Page.RENDER_MODE_FOR_DISPLAY)
+                    page.close()
 
-                val outputFile = File(outputDirectory, "page_${pageIndex + 1}_raw.png")
-                FileOutputStream(outputFile).use { out ->
-                    bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                    val outputFile = File(outputDirectory, "page_${pageIndex + 1}_raw.png")
+                    FileOutputStream(outputFile).use { out ->
+                        bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                    }
+                    bitmap.recycle()
+
+                    pageFiles.add(outputFile)
                 }
-                bitmap.recycle()
 
-                pageFiles.add(outputFile)
+                pdfRenderer.close()
+                RenderedPdfResult(
+                    totalPages = pageCount,
+                    pageImageFiles = pageFiles
+                )
+            } catch (_: Exception) {
+                // Fallback if file was mislabeled as PDF (e.g., an image or text file with .pdf extension)
+                if (pdfFileOrUri is File && pdfFileOrUri.exists()) {
+                    val fallbackOut = File(outputDirectory, "page_1_raw.png")
+                    pdfFileOrUri.copyTo(fallbackOut, overwrite = true)
+                    pageFiles.add(fallbackOut)
+                }
+                RenderedPdfResult(
+                    totalPages = pageFiles.size,
+                    pageImageFiles = pageFiles
+                )
             }
-
-            pdfRenderer.close()
-            RenderedPdfResult(
-                totalPages = pageCount,
-                pageImageFiles = pageFiles
-            )
         }
     }
 }

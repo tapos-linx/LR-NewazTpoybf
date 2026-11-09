@@ -175,12 +175,13 @@ class DocumentDetailViewModel(
             ExportFormat.JSON -> ReportExportManager.buildJsonReportContent(doc, pages, data)
             ExportFormat.TEXT -> ReportExportManager.buildTextSummaryContent(doc, data)
             ExportFormat.CSV -> ReportExportManager.buildDocumentsCsvContent(listOf(doc))
+            ExportFormat.ZIP -> "📦 সম্পূর্ণ নথি ZIP বান্ডেল (${doc.title})\nঅন্তর্ভুক্ত: মূল ফাইল, প্রসেসকৃত পাতা (${pages.size}টি), CSV, JSON, HTML Dossier ও টেক্সট রিপোর্ট।"
         }
     }
 
     /**
      * Saves the structured report directly to a local file location
-     * selected by the user via the Storage Access Framework (SAF).
+     * selected by the user via the Storage Access Framework (SAF) / PC local disk.
      */
     fun saveReportToSafUri(
         uri: Uri,
@@ -192,13 +193,23 @@ class DocumentDetailViewModel(
         val data = _uiState.value.recordData
 
         viewModelScope.launch {
-            val content = when (format) {
-                ExportFormat.JSON -> ReportExportManager.buildJsonReportContent(doc, pages, data)
-                ExportFormat.TEXT -> ReportExportManager.buildTextSummaryContent(doc, data)
-                ExportFormat.CSV -> ReportExportManager.buildDocumentsCsvContent(listOf(doc))
+            val result = if (format == ExportFormat.ZIP) {
+                val zipBytes = ReportExportManager.buildFullMassExportZipBytes(
+                    getApplication(),
+                    listOf(doc),
+                    listOf(Pair(doc, data))
+                )
+                ReportExportManager.writeBytesToSafUri(getApplication(), uri, zipBytes)
+            } else {
+                val content = when (format) {
+                    ExportFormat.JSON -> ReportExportManager.buildJsonReportContent(doc, pages, data)
+                    ExportFormat.TEXT -> ReportExportManager.buildTextSummaryContent(doc, data)
+                    ExportFormat.CSV -> ReportExportManager.buildDocumentsCsvContent(listOf(doc))
+                    ExportFormat.ZIP -> ""
+                }
+                ReportExportManager.writeContentToSafUri(getApplication(), uri, content)
             }
 
-            val result = ReportExportManager.writeContentToSafUri(getApplication(), uri, content)
             if (result.isSuccess) {
                 val msg = "রিপোর্ট সফলভাবে ডিভাইসে সংরক্ষিত হয়েছে (${format.extension.uppercase()})"
                 _uiState.value = _uiState.value.copy(
@@ -208,6 +219,49 @@ class DocumentDetailViewModel(
                 onComplete(true, msg)
             } else {
                 val err = "সংরক্ষণ ব্যর্থ হয়েছে: ${result.exceptionOrNull()?.localizedMessage}"
+                _uiState.value = _uiState.value.copy(exportSuccessMessage = err)
+                onComplete(false, err)
+            }
+        }
+    }
+
+    fun saveReportToPhoneDownloads(
+        format: ExportFormat,
+        onComplete: (Boolean, String) -> Unit
+    ) {
+        val doc = _uiState.value.document ?: return
+        val pages = _uiState.value.pages
+        val data = _uiState.value.recordData
+        val fileName = suggestFileName(format)
+
+        viewModelScope.launch {
+            val result = if (format == ExportFormat.ZIP) {
+                val zipBytes = ReportExportManager.buildFullMassExportZipBytes(
+                    getApplication(),
+                    listOf(doc),
+                    listOf(Pair(doc, data))
+                )
+                ReportExportManager.saveBytesToPhoneDownloads(getApplication(), fileName, format.mimeType, zipBytes)
+            } else {
+                val content = when (format) {
+                    ExportFormat.JSON -> ReportExportManager.buildJsonReportContent(doc, pages, data)
+                    ExportFormat.TEXT -> ReportExportManager.buildTextSummaryContent(doc, data)
+                    ExportFormat.CSV -> ReportExportManager.buildDocumentsCsvContent(listOf(doc))
+                    ExportFormat.ZIP -> ""
+                }
+                ReportExportManager.saveTextToPhoneDownloads(getApplication(), fileName, format.mimeType, content)
+            }
+
+            if (result.isSuccess) {
+                val savedPath = result.getOrNull() ?: "Downloads/$fileName"
+                val msg = "ফোন মেমোরিতে সংরক্ষিত হয়েছে: $savedPath"
+                _uiState.value = _uiState.value.copy(
+                    exportSuccessMessage = msg,
+                    showExportDialog = false
+                )
+                onComplete(true, msg)
+            } else {
+                val err = "ডাউনলোড ব্যর্থ হয়েছে: ${result.exceptionOrNull()?.localizedMessage}"
                 _uiState.value = _uiState.value.copy(exportSuccessMessage = err)
                 onComplete(false, err)
             }
@@ -242,6 +296,24 @@ class DocumentDetailViewModel(
         viewModelScope.launch {
             val file = ReportExportManager.generateDocumentsCsv(getApplication(), listOf(doc))
             _uiState.value = _uiState.value.copy(exportFile = file, exportFormat = "text/csv")
+            onSuccess(file)
+        }
+    }
+
+    fun exportZip(onSuccess: (File) -> Unit) {
+        val doc = _uiState.value.document ?: return
+        val data = _uiState.value.recordData
+        viewModelScope.launch {
+            val app = getApplication<android.app.Application>()
+            val zipBytes = ReportExportManager.buildFullMassExportZipBytes(
+                app,
+                listOf(doc),
+                listOf(Pair(doc, data))
+            )
+            val exportDir = File(app.cacheDir, "exports").apply { mkdirs() }
+            val file = File(exportDir, suggestFileName(ExportFormat.ZIP))
+            file.writeBytes(zipBytes)
+            _uiState.value = _uiState.value.copy(exportFile = file, exportFormat = "application/zip")
             onSuccess(file)
         }
     }

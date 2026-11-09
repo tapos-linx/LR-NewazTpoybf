@@ -55,9 +55,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _showExportBatchDialog = MutableStateFlow(false)
     val showExportBatchDialog = _showExportBatchDialog.asStateFlow()
 
+    private val extractedRecordRepository = com.example.data.repository.ExtractedLandRecordRepository(application)
+
     init {
         viewModelScope.launch {
             repository.seedInitialSampleRecordsIfEmpty()
+            extractedRecordRepository.seedInitialExtractedRecordsIfEmpty()
         }
     }
 
@@ -140,26 +143,31 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun importFilesFromUris(uris: List<Uri>) {
+    fun importFilesFromUris(uris: List<Uri>, onFinished: ((Int) -> Unit)? = null) {
+        if (uris.isEmpty()) return
         viewModelScope.launch {
             _isBatchProcessing.value = true
-            for ((index, uri) in uris.withIndex()) {
-                val filename = "আহরিত_নথি_${System.currentTimeMillis()}_${index + 1}.pdf"
-                _processingMessage.value = "নথি পড়া হচ্ছে (${index + 1}/${uris.size})..."
-
-                val discovered = DiscoveredFile(
-                    uri = uri,
-                    name = filename,
-                    parentFolder = "input_import",
-                    mimeType = "application/pdf",
-                    sizeBytes = 1024L,
-                    isZeroByte = false,
-                    format = "PDF",
-                    classifiedType = LandRecordType.fromFolderOrName(filename)
-                )
-                repository.processImportedFile(discovered)
+            _processingMessage.value = "পিসি ও ফোন মেমোরি থেকে ${uris.size}টি ফাইল যাচাই হচ্ছে..."
+            try {
+                val scanner = com.example.domain.saf.SafFolderScanner(getApplication())
+                val summary = scanner.scanMultipleUris(uris, defaultCategory = "পিসি_ও_ফোন_বাল্ক_আপলোড")
+                val validFiles = summary.supportedFiles.filter { !it.isDuplicate }
+                var importedCount = 0
+                for ((index, discovered) in validFiles.withIndex()) {
+                    _processingMessage.value = "বাল্ক নথি প্রক্রিয়াকরণ (${index + 1}/${validFiles.size}): ${discovered.name}"
+                    try {
+                        repository.processImportedFile(discovered)
+                        importedCount++
+                    } catch (_: Exception) {
+                    }
+                }
+                _processingMessage.value = "সফলভাবে $importedCount টি নথি যুক্ত হয়েছে"
+                onFinished?.invoke(importedCount)
+            } catch (_: Exception) {
+                onFinished?.invoke(0)
+            } finally {
+                _isBatchProcessing.value = false
             }
-            _isBatchProcessing.value = false
         }
     }
 
@@ -192,11 +200,31 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             ExportFormat.CSV -> {
                 ReportExportManager.buildDocumentsCsvContent(all)
             }
+            ExportFormat.ZIP -> {
+                buildString {
+                    appendLine("📦 সম্পূর্ণ ফরেনসিক আর্কাইভ বান্ডেল (.ZIP)")
+                    appendLine("==================================================")
+                    appendLine("মোট অন্তর্ভুক্ত নথি: ${all.size} টি")
+                    appendLine("অন্তর্ভুক্ত ফাইলসমূহ:")
+                    appendLine("  ১. AUDIT_MANIFEST.csv (সকল নথির মেটাডাটা ও SHA-256 স্ট্যাটাস)")
+                    appendLine("  ২. land_records_detailed.csv (মালিক, খতিয়ান, দাগ ও অংশের তালিকা)")
+                    appendLine("  ৩. land_records_full.json (স্ট্রাকচার্ড JSON ডাটাবেস এক্সপোর্ট)")
+                    appendLine("  ৪. land_records_summary.txt (আইনি সারসংক্ষেপ প্রতিবেদন)")
+                    appendLine("  ৫. documents/<নথি>/ (সকল মূল PDF, ছবি, ও প্রসেসকৃত পাতা)")
+                    appendLine("--------------------------------------------------")
+                    all.take(15).forEachIndexed { idx, doc ->
+                        appendLine("${idx + 1}. ${doc.title} (${doc.classifiedType}) - খতিয়ান: ${doc.primaryKhatianNo ?: "—"}, দাগ: ${doc.primaryDagNo ?: "—"}")
+                    }
+                    if (all.size > 15) {
+                        appendLine("... এবং আরও ${all.size - 15} টি নথি")
+                    }
+                }
+            }
         }
     }
 
     /**
-     * Saves consolidated multi-record summary report directly to local SAF URI.
+     * Saves consolidated multi-record summary report or full ZIP archive directly to local SAF / PC disk URI.
      */
     fun saveBatchReportToSafUri(
         uri: Uri,
@@ -205,38 +233,67 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     ) {
         viewModelScope.launch {
             _isBatchProcessing.value = true
-            _processingMessage.value = "রিপোর্ট ফাইলে লেখা হচ্ছে..."
+            _processingMessage.value = "পিসি / লোকাল ডিস্কে ফাইল সংরক্ষণ হচ্ছে..."
 
             val all = uiState.value.documents
-            val content = when (format) {
-                ExportFormat.JSON -> {
-                    val pairs = all.map { doc ->
-                        val data = repository.parseDataJson(doc.extractedDataJson)
-                        Pair(doc, data)
-                    }
-                    ReportExportManager.buildBatchJsonReportContent(pairs)
+            val result = if (format == ExportFormat.ZIP) {
+                val pairs = all.map { doc ->
+                    val data = repository.parseDataJson(doc.extractedDataJson)
+                    Pair(doc, data)
                 }
-                ExportFormat.TEXT -> {
-                    val pairs = all.map { doc ->
-                        val data = repository.parseDataJson(doc.extractedDataJson)
-                        Pair(doc, data)
-                    }
-                    ReportExportManager.buildBatchTextSummaryContent(pairs)
-                }
-                ExportFormat.CSV -> {
-                    ReportExportManager.buildDocumentsCsvContent(all)
-                }
+                val zipBytes = ReportExportManager.buildFullMassExportZipBytes(getApplication(), all, pairs)
+                ReportExportManager.writeBytesToSafUri(getApplication(), uri, zipBytes)
+            } else {
+                val content = getBatchPreviewContent(format)
+                ReportExportManager.writeContentToSafUri(getApplication(), uri, content)
             }
-
-            val result = ReportExportManager.writeContentToSafUri(getApplication(), uri, content)
             _isBatchProcessing.value = false
 
             if (result.isSuccess) {
-                val msg = "সকল নথির মেটাডাটা সফলভাবে ডিভাইসে সংরক্ষিত হয়েছে (${format.extension.uppercase()})"
+                val msg = "সফলভাবে লোকাল ডিস্কে সংরক্ষিত হয়েছে (${format.extension.uppercase()})"
                 _showExportBatchDialog.value = false
                 onComplete(true, msg)
             } else {
                 val err = "সংরক্ষণ ব্যর্থ হয়েছে: ${result.exceptionOrNull()?.localizedMessage}"
+                onComplete(false, err)
+            }
+        }
+    }
+
+    /**
+     * Saves consolidated multi-record summary report or full ZIP archive directly into
+     * Phone Memory (Downloads/NewazLandRecords/) with a single click.
+     */
+    fun saveBatchReportToPhoneDownloads(
+        format: ExportFormat,
+        onComplete: (Boolean, String) -> Unit
+    ) {
+        viewModelScope.launch {
+            _isBatchProcessing.value = true
+            _processingMessage.value = "ফোন মেমোরি (Downloads) ফোল্ডারে ডাউনলোড হচ্ছে..."
+
+            val all = uiState.value.documents
+            val fileName = suggestBatchFileName(format)
+            val result = if (format == ExportFormat.ZIP) {
+                val pairs = all.map { doc ->
+                    val data = repository.parseDataJson(doc.extractedDataJson)
+                    Pair(doc, data)
+                }
+                val zipBytes = ReportExportManager.buildFullMassExportZipBytes(getApplication(), all, pairs)
+                ReportExportManager.saveBytesToPhoneDownloads(getApplication(), fileName, format.mimeType, zipBytes)
+            } else {
+                val content = getBatchPreviewContent(format)
+                ReportExportManager.saveTextToPhoneDownloads(getApplication(), fileName, format.mimeType, content)
+            }
+            _isBatchProcessing.value = false
+
+            if (result.isSuccess) {
+                val savedPath = result.getOrNull() ?: "Downloads/$fileName"
+                val msg = "ফোন মেমোরিতে সংরক্ষিত হয়েছে: $savedPath"
+                _showExportBatchDialog.value = false
+                onComplete(true, msg)
+            } else {
+                val err = "ডাউনলোড ব্যর্থ হয়েছে: ${result.exceptionOrNull()?.localizedMessage}"
                 onComplete(false, err)
             }
         }
@@ -252,6 +309,35 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             _isBatchProcessing.value = false
             _exportedFile.value = csvFile
             onSuccess(csvFile)
+        }
+    }
+
+    fun shareBatchReport(format: ExportFormat) {
+        viewModelScope.launch {
+            _isBatchProcessing.value = true
+            _processingMessage.value = "শেয়ার করার জন্য ফাইল প্রস্তুত হচ্ছে..."
+            try {
+                val app = getApplication<Application>()
+                val all = uiState.value.documents
+                val exportDir = File(app.cacheDir, "exports").apply { mkdirs() }
+                val fileName = suggestBatchFileName(format)
+                val outFile = File(exportDir, fileName)
+                if (format == ExportFormat.ZIP) {
+                    val pairs = all.map { doc ->
+                        val data = repository.parseDataJson(doc.extractedDataJson)
+                        Pair(doc, data)
+                    }
+                    val zipBytes = ReportExportManager.buildFullMassExportZipBytes(app, all, pairs)
+                    outFile.writeBytes(zipBytes)
+                } else {
+                    val content = getBatchPreviewContent(format)
+                    outFile.writeText(content, Charsets.UTF_8)
+                }
+                _isBatchProcessing.value = false
+                ReportExportManager.shareFile(app, outFile, format.mimeType, "ভূমি রেকর্ড বাল্ক আর্কাইভ ($fileName)")
+            } catch (_: Exception) {
+                _isBatchProcessing.value = false
+            }
         }
     }
 

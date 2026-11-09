@@ -356,12 +356,19 @@ fun DocumentDetailScreen(
             suggestedFileNameJson = viewModel.suggestFileName(ExportFormat.JSON),
             suggestedFileNameText = viewModel.suggestFileName(ExportFormat.TEXT),
             suggestedFileNameCsv = viewModel.suggestFileName(ExportFormat.CSV),
+            suggestedFileNameZip = viewModel.suggestFileName(ExportFormat.ZIP),
             jsonPreview = viewModel.getReportContentPreview(ExportFormat.JSON),
             textPreview = viewModel.getReportContentPreview(ExportFormat.TEXT),
             csvPreview = viewModel.getReportContentPreview(ExportFormat.CSV),
+            zipPreview = viewModel.getReportContentPreview(ExportFormat.ZIP),
             initialFormat = ExportFormat.CSV,
             onSaveToSafUri = { uri, format ->
-                viewModel.saveReportToSafUri(uri, format) { success, msg ->
+                viewModel.saveReportToSafUri(uri, format) { _, msg ->
+                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                }
+            },
+            onSaveToPhoneDownloads = { format ->
+                viewModel.saveReportToPhoneDownloads(format) { _, msg ->
                     Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
                 }
             },
@@ -375,6 +382,16 @@ fun DocumentDetailScreen(
                                 file = file,
                                 mimeType = "text/csv",
                                 subject = "বাংলাদেশ ভূমি রেকর্ড মেটাডাটা CSV"
+                            )
+                        }
+                    }
+                    ExportFormat.ZIP -> {
+                        viewModel.exportZip { file ->
+                            ReportExportManager.shareFile(
+                                context = context,
+                                file = file,
+                                mimeType = "application/zip",
+                                subject = "বাংলাদেশ ভূমি রেকর্ড ZIP আর্কাইভ"
                             )
                         }
                     }

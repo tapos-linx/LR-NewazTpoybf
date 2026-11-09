@@ -57,11 +57,14 @@ enum class EvidenceTier(
  */
 data class HeirRecord(
     val id: String = UUID.randomUUID().toString(),
+    val serialNo: String = "",
     val name: String,
     val relationship: String, // পুত্র, কন্যা, স্ত্রী, স্বামী, পিতা, মাতা, ভাই, বোন
     val shareHissa: Double, // Decimal share, e.g. 0.500 or 0.125
     val shareFractionLabel: String = "", // e.g. "৮ আনা" বা "১/২ অংশ"
     val nidOrBirthCert: String = "",
+    val dateOfBirth: String = "-",
+    val remarks: String = "জীবিত",
     val isDeceased: Boolean = false,
     val subHeirs: List<HeirRecord> = emptyList()
 )
@@ -72,17 +75,20 @@ data class HeirRecord(
 data class WarishCertificate(
     val id: String = UUID.randomUUID().toString(),
     val certificateNo: String,
+    val certificateDate: String = "১৬-০৯-২০২৬",
     val deceasedName: String,
     val fatherOrHusbandName: String = "",
-    val villageOrArea: String = "",
-    val unionOrWard: String = "",
-    val upazila: String = "",
-    val district: String = "",
+    val motherName: String = "",
+    val villageOrArea: String = "গোয়ালী",
+    val unionOrWard: String = "কাইতলা (দক্ষিণ), ওয়ার্ড: ০৮",
+    val postOffice: String = "কাইতলা - ৩৪৭৭",
+    val upazila: String = "নবীনগর",
+    val district: String = "ব্রাহ্মণবাড়িয়া",
     val dateOfDeath: String = "",
-    val issuerDesignation: String = "চেয়ারম্যান / কাউন্সিলর",
+    val issuerDesignation: String = "চেয়ারম্যান, কাইতলা (দক্ষিণ) ইউনিয়ন পরিষদ",
     val heirs: List<HeirRecord> = emptyList(),
     val targetDagNumbers: List<String> = emptyList(),
-    val targetMouza: String = "",
+    val targetMouza: String = "গোয়ালী",
     val targetKhatianNumbers: List<String> = emptyList(),
     val notes: String = ""
 ) {

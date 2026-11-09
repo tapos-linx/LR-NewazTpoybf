@@ -151,6 +151,7 @@ fun WarishMatcherScreen(
             when (uiState.selectedTab) {
                 0 -> WarishMatcherTabContent(
                     uiState = uiState,
+                    onSelectCertificateIndex = { viewModel.selectCertificateIndex(it) },
                     onAddHeirClick = { showAddHeirDialog = true },
                     onRemoveHeir = { viewModel.removeHeir(it) },
                     onReRunMatch = { viewModel.runMatching() }
@@ -191,6 +192,7 @@ fun WarishMatcherScreen(
 @Composable
 fun WarishMatcherTabContent(
     uiState: WarishMatcherUiState,
+    onSelectCertificateIndex: (Int) -> Unit = {},
     onAddHeirClick: () -> Unit,
     onRemoveHeir: (String) -> Unit,
     onReRunMatch: () -> Unit
@@ -208,6 +210,66 @@ fun WarishMatcherTabContent(
         // Legal disclaimer reminder
         item {
             LegalDisclaimerBanner()
+        }
+
+        // Permanent Major Warish Certificate Selector Card
+        if (uiState.majorWarishList.isNotEmpty()) {
+            item {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("major_warish_selector_card"),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+                    )
+                ) {
+                    Column(modifier = Modifier.padding(12.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "স্থায়ী মেজর ওয়ারিশ সনদসমূহ (${BengaliNumberUtils.toBengaliDigits(uiState.majorWarishList.size.toLong())} টি)",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.primary
+                            )
+                            Text(
+                                text = "গোয়ালী, কাইতলা (দঃ), নবীনগর",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            uiState.majorWarishList.forEachIndexed { index, cert ->
+                                val isSelected = uiState.selectedCertificateIndex == index || warish.certificateNo == cert.certificateNo
+                                val bnIndex = BengaliNumberUtils.toBengaliDigits((index + 1).toLong())
+                                FilterChip(
+                                    selected = isSelected,
+                                    onClick = { onSelectCertificateIndex(index) },
+                                    label = {
+                                        Text(
+                                            text = "$bnIndex. ${cert.deceasedName} (${cert.certificateNo.takeLast(4)})",
+                                            fontSize = 11.sp,
+                                            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                        )
+                                    },
+                                    modifier = Modifier.testTag("chip_major_warish_$index")
+                                )
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         // Warishnama Header Summary Card
@@ -238,7 +300,7 @@ fun WarishMatcherTabContent(
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                         ) {
                             Text(
-                                text = warish.certificateNo,
+                                text = "সনদ নং: ${warish.certificateNo}",
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.primary,
@@ -255,12 +317,18 @@ fun WarishMatcherTabContent(
                         fontWeight = FontWeight.Bold
                     )
                     Text(
-                        text = "পিতা/স্বামী: ${warish.fatherOrHusbandName} • মৃত্যু: ${warish.dateOfDeath}",
+                        text = "পিতা: ${warish.fatherOrHusbandName}" +
+                                (if (warish.motherName.isNotBlank()) " • মাতা: ${warish.motherName}" else ""),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                    Text(
+                        text = "সনদের তারিখ: ${warish.certificateDate} • মৃত্যুর তারিখ: ${warish.dateOfDeath}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline
                     )
                     Text(
-                        text = "ইউনিয়ন/ওয়ার্ড: ${warish.unionOrWard}, ${warish.upazila}, ${warish.district}",
+                        text = "গ্রাম: ${warish.villageOrArea}, ডাকঘর: ${warish.postOffice}, ইউনিয়ন: ${warish.unionOrWard}, উপজেলা: ${warish.upazila}, জেলা: ${warish.district}",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.outline
                     )
@@ -510,16 +578,51 @@ fun HeirRowItem(heir: HeirRecord, onRemove: () -> Unit) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = heir.name,
-                    style = MaterialTheme.typography.bodySmall,
-                    fontWeight = FontWeight.Bold
-                )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (heir.serialNo.isNotBlank()) {
+                        Text(
+                            text = "${heir.serialNo}. ",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Text(
+                        text = heir.name,
+                        style = MaterialTheme.typography.bodySmall,
+                        fontWeight = FontWeight.Bold
+                    )
+                    if (heir.remarks.isNotBlank()) {
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = if (heir.remarks == "মৃত" || heir.isDeceased)
+                                StatusUncertain.copy(alpha = 0.2f)
+                            else
+                                StatusVerified.copy(alpha = 0.15f)
+                        ) {
+                            Text(
+                                text = heir.remarks,
+                                fontSize = 9.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (heir.remarks == "মৃত" || heir.isDeceased) StatusUncertain else StatusVerified,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                            )
+                        }
+                    }
+                }
                 Text(
                     text = "সম্পর্ক: ${heir.relationship} • অংশ: ${heir.shareFractionLabel} (${BengaliNumberUtils.toBengaliDigits("%.3f".format(heir.shareHissa))})",
                     fontSize = 10.sp,
                     color = MaterialTheme.colorScheme.outline
                 )
+                if (heir.nidOrBirthCert.isNotBlank() || heir.dateOfBirth.isNotBlank()) {
+                    Text(
+                        text = "এনআইডি/জন্ম সনদ: ${heir.nidOrBirthCert.ifBlank { "-" }} • জন্ম তারিখ: ${heir.dateOfBirth.ifBlank { "-" }}",
+                        fontSize = 9.5.sp,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
             }
             IconButton(onClick = onRemove, modifier = Modifier.size(26.dp)) {
                 Icon(Icons.Default.Close, contentDescription = "মুছুন", tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
@@ -1164,17 +1267,18 @@ fun buildAuditSummaryText(report: WarishMatchReport?): String {
     if (report == null) return ""
     val warish = report.warishCertificate
     val b = StringBuilder()
-    b.appendLine("=== বাংলাদেশ ভূমি রেকর্ড ফরেনসিক অডিট রিপোর্ট ===")
-    b.appendLine("সনদ নং: ${warish.certificateNo}")
-    b.appendLine("মরহুম / মৃত: ${warish.deceasedName} (পিতা/স্বামী: ${warish.fatherOrHusbandName})")
-    b.appendLine("এলাকা: ${warish.unionOrWard}, ${warish.upazila}, ${warish.district}")
+    b.appendLine("=== বাংলাদেশ ভূমি রেকর্ড ফরেনসিক অডিট রিপোর্ট (স্থায়ী মেজর ওয়ারিশ) ===")
+    b.appendLine("সনদ নং: ${warish.certificateNo} | তারিখ: ${warish.certificateDate}")
+    b.appendLine("মৃত ব্যক্তির নাম: ${warish.deceasedName} | পিতা: ${warish.fatherOrHusbandName} | মাতা: ${warish.motherName}")
+    b.appendLine("গ্রাম: ${warish.villageOrArea}, ডাকঘর: ${warish.postOffice}, ইউনিয়ন: ${warish.unionOrWard}, উপজেলা: ${warish.upazila}, জেলা: ${warish.district}")
+    b.appendLine("মৃত্যুর তারিখ: ${warish.dateOfDeath}")
     b.appendLine("চূড়ান্ত প্রমাণ স্তর (Evidence Tier): ${report.overallEvidenceTier.bengaliLabel}")
     b.appendLine("কনফিডেন্স স্কোর: ${report.overallConfidenceScore}%")
     b.appendLine("হিস্যা সমতা: ${if (report.isHissaMathematicallyBalanced) "সঠিক (১.০০০)" else "গরমিল"}")
     b.appendLine("মোট হস্তান্তরিত জমি: ${report.totalInheritedDecimals} শতাংশ")
-    b.appendLine("\nওয়ারিশগণের তালিকা:")
+    b.appendLine("\nওয়ারিশগণের তালিকা (ক্রঃ | নাম | সম্পর্ক | ভোটার আইডি/জন্ম সনদ | জন্ম তারিখ | মন্তব্য | অংশ):")
     warish.heirs.forEach { heir ->
-        b.appendLine(" - ${heir.name} (${heir.relationship}): অংশ ${heir.shareFractionLabel} (দশমিক ${heir.shareHissa})")
+        b.appendLine(" ${heir.serialNo.ifBlank { "-" }} | ${heir.name} | ${heir.relationship} | ${heir.nidOrBirthCert.ifBlank { "-" }} | ${heir.dateOfBirth.ifBlank { "-" }} | ${heir.remarks} | অংশ ${heir.shareFractionLabel} (${heir.shareHissa})")
     }
     b.appendLine("\nদাগভিত্তিক বরাদ্দ:")
     report.matchedPlots.forEach { plot ->

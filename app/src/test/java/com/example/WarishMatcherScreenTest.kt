@@ -41,12 +41,15 @@ class WarishMatcherScreenTest {
             }
         }
 
+        composeTestRule.onNodeWithTag("major_warish_selector_card").assertIsDisplayed()
         composeTestRule.onNodeWithTag("warish_certificate_card").assertIsDisplayed()
         composeTestRule.onNodeWithText("ওয়ারিশনামা সনদ তথ্য").assertIsDisplayed()
-        composeTestRule.onNodeWithText("মরহুম / মৃত: মরহুম হাজী আব্দুল করিম").assertIsDisplayed()
-        composeTestRule.onNodeWithTag("hissa_balance_card").assertIsDisplayed()
-        composeTestRule.onNodeWithText("হিস্যা সমতা যাচাই (১৬ আনা / ১.০০০)").assertIsDisplayed()
-        composeTestRule.onNodeWithText("মোসাঃ রহিমা খাতুন").assertExists()
+        composeTestRule.onNodeWithText("মরহুম / মৃত: ফিরুজ মিয়া").assertIsDisplayed()
+        composeTestRule.onNodeWithTag("warish_matcher_tab_content")
+            .performScrollToNode(hasTestTag("hissa_balance_card"))
+        composeTestRule.onNodeWithTag("hissa_balance_card").assertExists()
+        composeTestRule.onNodeWithText("হিস্যা সমতা যাচাই (১৬ আনা / ১.০০০)").assertExists()
+        composeTestRule.onNodeWithText("রফিকুল ইসলাম").assertExists()
     }
 
     @Test

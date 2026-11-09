@@ -18,9 +18,21 @@ import com.example.data.local.entity.*
         LandOwnerEntity::class,
         EvidenceAuditEntity::class,
         BatchJobEntity::class,
-        SearchIndexEntity::class
+        SearchIndexEntity::class,
+        WarishCertificateEntity::class,
+        InheritorEntity::class,
+        KhatianEntity::class,
+        KhatianOwnerEntity::class,
+        KhatianPlotEntity::class,
+        DeedRecordEntity::class,
+        DeedPartyEntity::class,
+        DeedPlotScheduleEntity::class,
+        MutationRecordEntity::class,
+        MutationPartyEntity::class,
+        MutationPlotEntity::class,
+        LandChainLinkEntity::class
     ],
-    version = 3,
+    version = 5,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -35,6 +47,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun evidenceAuditDao(): EvidenceAuditDao
     abstract fun batchJobDao(): BatchJobDao
     abstract fun searchIndexDao(): SearchIndexDao
+    abstract fun inheritorDao(): InheritorDao
+    abstract fun extractedLandRecordDao(): ExtractedLandRecordDao
 
     companion object {
         @Volatile
