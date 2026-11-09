@@ -59,6 +59,51 @@ class CameraCaptureViewModel(application: Application) : AndroidViewModel(applic
         }
     }
 
+    fun updateCapturedPage(index: Int, newFile: File) {
+        val currentList = _uiState.value.capturedFiles.toMutableList()
+        if (index in currentList.indices) {
+            currentList[index] = newFile
+            _uiState.value = _uiState.value.copy(capturedFiles = currentList)
+        }
+    }
+
+    fun cropAndAlignPage(
+        index: Int,
+        cropLeft: Float,
+        cropTop: Float,
+        cropRight: Float,
+        cropBottom: Float,
+        rotationDegrees: Float,
+        onDone: (File) -> Unit = {}
+    ) {
+        val currentList = _uiState.value.capturedFiles
+        if (index !in currentList.indices) return
+
+        val sourceFile = currentList[index]
+        val croppedFile = File(
+            getApplication<Application>().cacheDir,
+            "crop_${UUID.randomUUID()}.jpg"
+        )
+
+        viewModelScope.launch {
+            try {
+                val result = com.example.domain.image.ImagePreprocessor.cropAndAlignDocument(
+                    sourceImageFile = sourceFile,
+                    outputFile = croppedFile,
+                    cropLeftRatio = cropLeft,
+                    cropTopRatio = cropTop,
+                    cropRightRatio = cropRight,
+                    cropBottomRatio = cropBottom,
+                    rotationDegrees = rotationDegrees
+                )
+                updateCapturedPage(index, result)
+                onDone(result)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(error = "ক্রপ ও সোজা করতে ব্যর্থ: ${e.localizedMessage}")
+            }
+        }
+    }
+
     fun finishSession(onComplete: (String) -> Unit) {
         val pages = _uiState.value.capturedFiles
         if (pages.isEmpty()) {

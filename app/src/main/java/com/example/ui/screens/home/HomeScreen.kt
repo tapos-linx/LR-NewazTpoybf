@@ -31,10 +31,12 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.CameraAlt
 import androidx.compose.material.icons.filled.Clear
+import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
@@ -118,7 +120,8 @@ fun HomeScreen(
     onNavigateToHcr: (() -> Unit)? = null,
     onNavigateToAtlas: (() -> Unit)? = null,
     onNavigateToGeminiOcr: (() -> Unit)? = null,
-    onNavigateToTaskManager: (() -> Unit)? = null
+    onNavigateToTaskManager: (() -> Unit)? = null,
+    onNavigateToGoogleDrive: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
@@ -232,6 +235,18 @@ fun HomeScreen(
                             contentDescription = "OCR মডেল ও ভাষা",
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
+                    }
+                    if (onNavigateToGoogleDrive != null) {
+                        IconButton(
+                            onClick = onNavigateToGoogleDrive,
+                            modifier = Modifier.testTag("btn_top_google_drive")
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.CloudDownload,
+                                contentDescription = "গুগল ড্রাইভ ইনজেকশন",
+                                tint = MaterialTheme.colorScheme.onPrimary
+                            )
+                        }
                     }
                     IconButton(
                         onClick = { viewModel.setShowExportBatchDialog(true) },
@@ -355,6 +370,60 @@ fun HomeScreen(
                     color = if (uiState.zeroByteCount > 0) StatusUncertain else MaterialTheme.colorScheme.outline,
                     modifier = Modifier.weight(1f)
                 )
+            }
+
+            // Google Drive Direct Injection Quick Banner
+            if (onNavigateToGoogleDrive != null) {
+                Card(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 4.dp)
+                        .clickable { onNavigateToGoogleDrive() }
+                        .testTag("card_google_drive_inject"),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F766E).copy(alpha = 0.12f))
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Surface(
+                            shape = CircleShape,
+                            color = Color(0xFF0F766E),
+                            modifier = Modifier.size(36.dp)
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    imageVector = Icons.Default.CloudDownload,
+                                    contentDescription = null,
+                                    tint = Color.White,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "গুগল ড্রাইভ সরাসরি ইনজেকশন (Direct Drive Inject)",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF0F766E)
+                            )
+                            Text(
+                                text = "মাস্টার ফোল্ডার, সাব-ফোল্ডার, জিপ ও ফাইলসমূহ সরাসরি নিষ্কাশন",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = Color(0xFF0F766E),
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
 
             // Quick CSV Export Bar for External Reporting
@@ -762,10 +831,12 @@ fun HomeScreen(
             suggestedFileNameJson = viewModel.suggestBatchFileName(ExportFormat.JSON),
             suggestedFileNameText = viewModel.suggestBatchFileName(ExportFormat.TEXT),
             suggestedFileNameCsv = viewModel.suggestBatchFileName(ExportFormat.CSV),
+            suggestedFileNamePdf = viewModel.suggestBatchFileName(ExportFormat.PDF),
             suggestedFileNameZip = viewModel.suggestBatchFileName(ExportFormat.ZIP),
             jsonPreview = viewModel.getBatchPreviewContent(ExportFormat.JSON),
             textPreview = viewModel.getBatchPreviewContent(ExportFormat.TEXT),
             csvPreview = viewModel.getBatchPreviewContent(ExportFormat.CSV),
+            pdfPreview = viewModel.getBatchPreviewContent(ExportFormat.PDF),
             zipPreview = viewModel.getBatchPreviewContent(ExportFormat.ZIP),
             initialFormat = ExportFormat.CSV,
             onSaveToSafUri = { uri, format ->

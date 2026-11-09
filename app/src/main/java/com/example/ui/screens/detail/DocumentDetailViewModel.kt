@@ -175,7 +175,20 @@ class DocumentDetailViewModel(
             ExportFormat.JSON -> ReportExportManager.buildJsonReportContent(doc, pages, data)
             ExportFormat.TEXT -> ReportExportManager.buildTextSummaryContent(doc, data)
             ExportFormat.CSV -> ReportExportManager.buildDocumentsCsvContent(listOf(doc))
-            ExportFormat.ZIP -> "📦 সম্পূর্ণ নথি ZIP বান্ডেল (${doc.title})\nঅন্তর্ভুক্ত: মূল ফাইল, প্রসেসকৃত পাতা (${pages.size}টি), CSV, JSON, HTML Dossier ও টেক্সট রিপোর্ট।"
+            ExportFormat.PDF -> buildString {
+                appendLine("📄 ফরেনসিক PDF ডসিয়ার (${doc.title})")
+                appendLine("==================================================")
+                appendLine("ফরম্যাট: A4 মুদ্রণযোগ্য প্রামাণিক ডসিয়ার (Multi-Page PDF)")
+                appendLine("অন্তর্ভুক্ত সেকশনসমূহ:")
+                appendLine("  ১. সরকারি শীর্ষ ব্যানার ও আইনি সতর্কবার্তা")
+                appendLine("  ২. ভৌগোলিক ও জরিপ পরিচিতি টেবিল (জেলা, উপজেলা, মৌজা, জে.এল)")
+                appendLine("  ৩. খতিয়ান, দাগ ও জমির পরিমাপ টেবিল (শতাংশ ও একর)")
+                appendLine("  ৪. মালিক ও রায়তের বিবরণ টেবিল (${data.owners.size} জন মালিক)")
+                appendLine("  ৫. যাচাইকরণ নোট ও OCR পাঠ্যাংশ")
+                appendLine("--------------------------------------------------")
+                append(ReportExportManager.buildTextSummaryContent(doc, data))
+            }
+            ExportFormat.ZIP -> "📦 সম্পূর্ণ নথি ZIP বান্ডেল (${doc.title})\nঅন্তর্ভুক্ত: মূল ফাইল, প্রসেসকৃত পাতা (${pages.size}টি), PDF ডসিয়ার, CSV, JSON, HTML Dossier ও টেক্সট রিপোর্ট।"
         }
     }
 
@@ -193,21 +206,31 @@ class DocumentDetailViewModel(
         val data = _uiState.value.recordData
 
         viewModelScope.launch {
-            val result = if (format == ExportFormat.ZIP) {
-                val zipBytes = ReportExportManager.buildFullMassExportZipBytes(
-                    getApplication(),
-                    listOf(doc),
-                    listOf(Pair(doc, data))
-                )
-                ReportExportManager.writeBytesToSafUri(getApplication(), uri, zipBytes)
-            } else {
-                val content = when (format) {
-                    ExportFormat.JSON -> ReportExportManager.buildJsonReportContent(doc, pages, data)
-                    ExportFormat.TEXT -> ReportExportManager.buildTextSummaryContent(doc, data)
-                    ExportFormat.CSV -> ReportExportManager.buildDocumentsCsvContent(listOf(doc))
-                    ExportFormat.ZIP -> ""
+            val result = when (format) {
+                ExportFormat.ZIP -> {
+                    val zipBytes = ReportExportManager.buildFullMassExportZipBytes(
+                        getApplication(),
+                        listOf(doc),
+                        listOf(Pair(doc, data))
+                    )
+                    ReportExportManager.writeBytesToSafUri(getApplication(), uri, zipBytes)
                 }
-                ReportExportManager.writeContentToSafUri(getApplication(), uri, content)
+                ExportFormat.PDF -> {
+                    val pdfBytes = ReportExportManager.buildFormattedPdfBytes(doc, pages, data)
+                    ReportExportManager.writeBytesToSafUri(getApplication(), uri, pdfBytes)
+                }
+                ExportFormat.JSON -> {
+                    val content = ReportExportManager.buildJsonReportContent(doc, pages, data)
+                    ReportExportManager.writeContentToSafUri(getApplication(), uri, content)
+                }
+                ExportFormat.TEXT -> {
+                    val content = ReportExportManager.buildTextSummaryContent(doc, data)
+                    ReportExportManager.writeContentToSafUri(getApplication(), uri, content)
+                }
+                ExportFormat.CSV -> {
+                    val content = ReportExportManager.buildDocumentsCsvContent(listOf(doc))
+                    ReportExportManager.writeContentToSafUri(getApplication(), uri, content)
+                }
             }
 
             if (result.isSuccess) {
@@ -235,21 +258,31 @@ class DocumentDetailViewModel(
         val fileName = suggestFileName(format)
 
         viewModelScope.launch {
-            val result = if (format == ExportFormat.ZIP) {
-                val zipBytes = ReportExportManager.buildFullMassExportZipBytes(
-                    getApplication(),
-                    listOf(doc),
-                    listOf(Pair(doc, data))
-                )
-                ReportExportManager.saveBytesToPhoneDownloads(getApplication(), fileName, format.mimeType, zipBytes)
-            } else {
-                val content = when (format) {
-                    ExportFormat.JSON -> ReportExportManager.buildJsonReportContent(doc, pages, data)
-                    ExportFormat.TEXT -> ReportExportManager.buildTextSummaryContent(doc, data)
-                    ExportFormat.CSV -> ReportExportManager.buildDocumentsCsvContent(listOf(doc))
-                    ExportFormat.ZIP -> ""
+            val result = when (format) {
+                ExportFormat.ZIP -> {
+                    val zipBytes = ReportExportManager.buildFullMassExportZipBytes(
+                        getApplication(),
+                        listOf(doc),
+                        listOf(Pair(doc, data))
+                    )
+                    ReportExportManager.saveBytesToPhoneDownloads(getApplication(), fileName, format.mimeType, zipBytes)
                 }
-                ReportExportManager.saveTextToPhoneDownloads(getApplication(), fileName, format.mimeType, content)
+                ExportFormat.PDF -> {
+                    val pdfBytes = ReportExportManager.buildFormattedPdfBytes(doc, pages, data)
+                    ReportExportManager.saveBytesToPhoneDownloads(getApplication(), fileName, format.mimeType, pdfBytes)
+                }
+                ExportFormat.JSON -> {
+                    val content = ReportExportManager.buildJsonReportContent(doc, pages, data)
+                    ReportExportManager.saveTextToPhoneDownloads(getApplication(), fileName, format.mimeType, content)
+                }
+                ExportFormat.TEXT -> {
+                    val content = ReportExportManager.buildTextSummaryContent(doc, data)
+                    ReportExportManager.saveTextToPhoneDownloads(getApplication(), fileName, format.mimeType, content)
+                }
+                ExportFormat.CSV -> {
+                    val content = ReportExportManager.buildDocumentsCsvContent(listOf(doc))
+                    ReportExportManager.saveTextToPhoneDownloads(getApplication(), fileName, format.mimeType, content)
+                }
             }
 
             if (result.isSuccess) {
@@ -265,6 +298,18 @@ class DocumentDetailViewModel(
                 _uiState.value = _uiState.value.copy(exportSuccessMessage = err)
                 onComplete(false, err)
             }
+        }
+    }
+
+    fun exportPdf(onSuccess: (File) -> Unit) {
+        val doc = _uiState.value.document ?: return
+        val pages = _uiState.value.pages
+        val data = _uiState.value.recordData
+
+        viewModelScope.launch {
+            val file = ReportExportManager.generatePdfReport(getApplication(), doc, pages, data)
+            _uiState.value = _uiState.value.copy(exportFile = file, exportFormat = "application/pdf")
+            onSuccess(file)
         }
     }
 

@@ -234,4 +234,71 @@ object ImagePreprocessor {
         }
         return bmp
     }
+
+    /**
+     * Crops and aligns a land record document bitmap by applying rotation (both 90-degree steps
+     * and fine deskew angle) followed by cropping the defined normalized region (0.0..1.0).
+     */
+    suspend fun cropAndAlignDocument(
+        sourceImageFile: File,
+        outputFile: File,
+        cropLeftRatio: Float,
+        cropTopRatio: Float,
+        cropRightRatio: Float,
+        cropBottomRatio: Float,
+        rotationDegrees: Float
+    ): File = withContext(Dispatchers.IO) {
+        val originalBitmap = BitmapFactory.decodeFile(sourceImageFile.absolutePath)
+            ?: createFallbackDocumentBitmap(sourceImageFile)
+
+        // 1. Apply total rotation (including fine deskew angle)
+        val rotatedBitmap = if (rotationDegrees != 0f) {
+            val matrix = Matrix().apply { postRotate(rotationDegrees) }
+            Bitmap.createBitmap(
+                originalBitmap,
+                0,
+                0,
+                originalBitmap.width,
+                originalBitmap.height,
+                matrix,
+                true
+            )
+        } else {
+            originalBitmap
+        }
+
+        // 2. Compute pixel coordinates for cropping
+        val minX = (cropLeftRatio.coerceIn(0f, 1f) * rotatedBitmap.width).toInt()
+        val minY = (cropTopRatio.coerceIn(0f, 1f) * rotatedBitmap.height).toInt()
+        val maxX = (cropRightRatio.coerceIn(0f, 1f) * rotatedBitmap.width).toInt()
+        val maxY = (cropBottomRatio.coerceIn(0f, 1f) * rotatedBitmap.height).toInt()
+
+        val cropLeft = min(minX, maxX).coerceIn(0, rotatedBitmap.width - 1)
+        val cropTop = min(minY, maxY).coerceIn(0, rotatedBitmap.height - 1)
+        val cropWidth = max(10, kotlin.math.abs(maxX - minX)).coerceAtMost(rotatedBitmap.width - cropLeft)
+        val cropHeight = max(10, kotlin.math.abs(maxY - minY)).coerceAtMost(rotatedBitmap.height - cropTop)
+
+        val croppedBitmap = Bitmap.createBitmap(
+            rotatedBitmap,
+            cropLeft,
+            cropTop,
+            cropWidth,
+            cropHeight
+        )
+
+        // 3. Save to output file
+        if (outputFile.parentFile?.exists() == false) {
+            outputFile.parentFile?.mkdirs()
+        }
+        FileOutputStream(outputFile).use { out ->
+            val format = if (outputFile.extension.equals("png", ignoreCase = true)) {
+                Bitmap.CompressFormat.PNG
+            } else {
+                Bitmap.CompressFormat.JPEG
+            }
+            croppedBitmap.compress(format, 95, out)
+        }
+
+        outputFile
+    }
 }

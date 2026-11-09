@@ -421,6 +421,51 @@ fun LandRecordGeminiScreen(
                                 InfoChip("দাগ নং", result.dagNo.ifBlank { "১০২, ১০৫" })
                                 InfoChip("জেএল নং", result.jlNo.ifBlank { "১২৪" })
                             }
+
+                            Spacer(modifier = Modifier.height(4.dp))
+
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Button(
+                                    onClick = {
+                                        viewModel.exportGeminiResultToPdf(
+                                            result = result,
+                                            shareAfterExport = false
+                                        ) { msg ->
+                                            snackbarMessage = msg
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("btn_gemini_export_pdf_download"),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Icon(Icons.Default.PictureAsPdf, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("PDF ডাউনলোড", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+
+                                OutlinedButton(
+                                    onClick = {
+                                        viewModel.exportGeminiResultToPdf(
+                                            result = result,
+                                            shareAfterExport = true
+                                        ) { msg ->
+                                            snackbarMessage = msg
+                                        }
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .testTag("btn_gemini_export_pdf_share"),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("PDF শেয়ার", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
                         }
                     }
 

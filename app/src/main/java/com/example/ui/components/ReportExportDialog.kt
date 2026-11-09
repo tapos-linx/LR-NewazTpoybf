@@ -61,10 +61,12 @@ fun ReportExportDialog(
     suggestedFileNameJson: String,
     suggestedFileNameText: String,
     suggestedFileNameCsv: String = "",
+    suggestedFileNamePdf: String = "",
     suggestedFileNameZip: String = "",
     jsonPreview: String,
     textPreview: String,
     csvPreview: String = "",
+    pdfPreview: String = "",
     zipPreview: String = "",
     initialFormat: ExportFormat = ExportFormat.CSV,
     onSaveToSafUri: (Uri, ExportFormat) -> Unit,
@@ -79,10 +81,11 @@ fun ReportExportDialog(
         ExportFormat.JSON -> suggestedFileNameJson
         ExportFormat.TEXT -> suggestedFileNameText
         ExportFormat.CSV -> if (suggestedFileNameCsv.isNotBlank()) suggestedFileNameCsv else suggestedFileNameText.replace(".txt", ".csv")
+        ExportFormat.PDF -> if (suggestedFileNamePdf.isNotBlank()) suggestedFileNamePdf else suggestedFileNameText.replace(".txt", ".pdf")
         ExportFormat.ZIP -> if (suggestedFileNameZip.isNotBlank()) suggestedFileNameZip else suggestedFileNameText.replace(".txt", ".zip")
     }
 
-    // Use "*/*" so dynamic format switching (.csv, .zip, .json, .txt) works seamlessly on PC local disk & SAF
+    // Use "*/*" so dynamic format switching (.csv, .pdf, .zip, .json, .txt) works seamlessly on PC local disk & SAF
     val safCreateDocumentLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("*/*")
     ) { uri: Uri? ->
@@ -162,6 +165,13 @@ fun ReportExportDialog(
                         onClick = { selectedFormat = ExportFormat.TEXT },
                         label = { Text("টেক্সট (.txt)", fontSize = 11.sp) },
                         modifier = Modifier.testTag("chip_export_text")
+                    )
+
+                    FilterChip(
+                        selected = selectedFormat == ExportFormat.PDF,
+                        onClick = { selectedFormat = ExportFormat.PDF },
+                        label = { Text("PDF (.pdf)", fontSize = 11.sp) },
+                        modifier = Modifier.testTag("chip_export_pdf")
                     )
 
                     FilterChip(
@@ -252,7 +262,8 @@ fun ReportExportDialog(
                             ExportFormat.JSON -> jsonPreview
                             ExportFormat.TEXT -> textPreview
                             ExportFormat.CSV -> csvPreview
-                            ExportFormat.ZIP -> if (zipPreview.isNotBlank()) zipPreview else "📦 সম্পূর্ণ আর্কাইভ বান্ডেল ($currentSuggestedFileName)\nঅন্তর্ভুক্ত: মূল নথি, CSV, JSON ও সারসংক্ষেপ রিপোর্ট।"
+                            ExportFormat.PDF -> if (pdfPreview.isNotBlank()) pdfPreview else "📄 ফরেনসিক PDF ডসিয়ার ($currentSuggestedFileName)\nA4 ফরম্যাটে টেবিল, মালিকানা হিস্যা, খতিয়ান ও দাগের পূর্ণাঙ্গ প্রতিবেদন।\n\n$textPreview"
+                            ExportFormat.ZIP -> if (zipPreview.isNotBlank()) zipPreview else "📦 সম্পূর্ণ আর্কাইভ বান্ডেল ($currentSuggestedFileName)\nঅন্তর্ভুক্ত: মূল নথি, PDF ডসিয়ার, CSV, JSON ও সারসংক্ষেপ রিপোর্ট।"
                         }
                         Box(
                             modifier = Modifier

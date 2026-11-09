@@ -156,6 +156,13 @@ class SafImportViewModel(application: Application) : AndroidViewModel(applicatio
                         val zipBytes = ReportExportManager.buildFullMassExportZipBytes(app, allDocs, pairs)
                         ReportExportManager.saveBytesToPhoneDownloads(app, fileName, format.mimeType, zipBytes)
                     }
+                    ExportFormat.PDF -> {
+                        val pairs = allDocs.map { doc ->
+                            Pair(doc, repository.parseDataJson(doc.extractedDataJson))
+                        }
+                        val pdfBytes = ReportExportManager.buildBatchFormattedPdfBytes(pairs)
+                        ReportExportManager.saveBytesToPhoneDownloads(app, fileName, format.mimeType, pdfBytes)
+                    }
                     ExportFormat.CSV -> {
                         val content = ReportExportManager.buildDocumentsCsvContent(allDocs)
                         ReportExportManager.saveTextToPhoneDownloads(app, fileName, format.mimeType, content)
@@ -195,7 +202,7 @@ class SafImportViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     /**
-     * Saves all land records (ZIP archive or CSV/JSON) to user-selected PC Local Disk / SAF URI.
+     * Saves all land records (ZIP archive, PDF dossier, or CSV/JSON) to user-selected PC Local Disk / SAF URI.
      */
     fun saveAllToSafUri(
         uri: Uri,
@@ -219,6 +226,13 @@ class SafImportViewModel(application: Application) : AndroidViewModel(applicatio
                         }
                         val zipBytes = ReportExportManager.buildFullMassExportZipBytes(app, allDocs, pairs)
                         ReportExportManager.writeBytesToSafUri(app, uri, zipBytes)
+                    }
+                    ExportFormat.PDF -> {
+                        val pairs = allDocs.map { doc ->
+                            Pair(doc, repository.parseDataJson(doc.extractedDataJson))
+                        }
+                        val pdfBytes = ReportExportManager.buildBatchFormattedPdfBytes(pairs)
+                        ReportExportManager.writeBytesToSafUri(app, uri, pdfBytes)
                     }
                     ExportFormat.CSV -> {
                         val content = ReportExportManager.buildDocumentsCsvContent(allDocs)

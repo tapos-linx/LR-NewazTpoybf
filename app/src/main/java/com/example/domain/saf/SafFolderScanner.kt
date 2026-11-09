@@ -321,7 +321,9 @@ class SafFolderScanner(private val context: Context) {
                     var entry = zis.nextEntry
                     while (entry != null) {
                         if (!entry.isDirectory) {
-                            val entryName = entry.name.substringAfterLast('/')
+                            val entryPath = entry.name.trimStart('/')
+                            val subFolder = entryPath.substringBeforeLast('/', "").trim()
+                            val entryName = entryPath.substringAfterLast('/')
                             val ext = entryName.substringAfterLast('.', "").lowercase()
                             if (entryName.isNotBlank() && !entryName.startsWith(".") && ext in supportedExtensions && ext != "zip") {
                                 val safeName = entryName.replace(Regex("[^a-zA-Z0-9._\\-\\u0980-\\u09FF]"), "_")
@@ -329,10 +331,11 @@ class SafFolderScanner(private val context: Context) {
                                 FileOutputStream(outFile).use { fos ->
                                     zis.copyTo(fos)
                                 }
+                                val effectiveParent = if (subFolder.isNotBlank()) "$archiveFolderLabel/$subFolder" else archiveFolderLabel
                                 addDiscoveredItem(
                                     uri = Uri.fromFile(outFile),
                                     name = entryName,
-                                    parentName = archiveFolderLabel,
+                                    parentName = effectiveParent,
                                     mimeType = guessMimeType(ext),
                                     size = outFile.length(),
                                     ext = ext,
@@ -365,10 +368,16 @@ class SafFolderScanner(private val context: Context) {
     ) {
         if (doc.isDirectory) {
             val children = doc.listFiles()
+            val folderName = doc.name ?: "folder"
+            val nextParent = if (parentName.isBlank() || parentName == "input" || parentName == folderName) {
+                folderName
+            } else {
+                "$parentName/$folderName"
+            }
             for (child in children) {
                 traverseDocument(
                     child,
-                    parentName = doc.name ?: parentName,
+                    parentName = nextParent,
                     supportedOut = supportedOut,
                     zeroBytesOut = zeroBytesOut,
                     duplicatesOut = duplicatesOut,

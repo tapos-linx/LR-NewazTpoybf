@@ -200,6 +200,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             ExportFormat.CSV -> {
                 ReportExportManager.buildDocumentsCsvContent(all)
             }
+            ExportFormat.PDF -> {
+                buildString {
+                    appendLine("📄 সামগ্রিক ভূমি রেকর্ড ফরেনসিক PDF ডসিয়ার (.PDF)")
+                    appendLine("==================================================")
+                    appendLine("ফরম্যাট: A4 মুদ্রণযোগ্য মাস্টার ইনডেক্স ও প্রতিটি নথির বিস্তারিত টেবিল")
+                    appendLine("মোট অন্তর্ভুক্ত নথি: ${all.size} টি")
+                    appendLine("--------------------------------------------------")
+                    all.take(15).forEachIndexed { idx, doc ->
+                        appendLine("${idx + 1}. ${doc.title} (${doc.classifiedType}) - মৌজা: ${doc.primaryMouza ?: "—"}, খতিয়ান: ${doc.primaryKhatianNo ?: "—"}, দাগ: ${doc.primaryDagNo ?: "—"}")
+                    }
+                }
+            }
             ExportFormat.ZIP -> {
                 buildString {
                     appendLine("📦 সম্পূর্ণ ফরেনসিক আর্কাইভ বান্ডেল (.ZIP)")
@@ -208,9 +220,10 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                     appendLine("অন্তর্ভুক্ত ফাইলসমূহ:")
                     appendLine("  ১. AUDIT_MANIFEST.csv (সকল নথির মেটাডাটা ও SHA-256 স্ট্যাটাস)")
                     appendLine("  ২. land_records_detailed.csv (মালিক, খতিয়ান, দাগ ও অংশের তালিকা)")
-                    appendLine("  ৩. land_records_full.json (স্ট্রাকচার্ড JSON ডাটাবেস এক্সপোর্ট)")
-                    appendLine("  ৪. land_records_summary.txt (আইনি সারসংক্ষেপ প্রতিবেদন)")
-                    appendLine("  ৫. documents/<নথি>/ (সকল মূল PDF, ছবি, ও প্রসেসকৃত পাতা)")
+                    appendLine("  ৩. land_records_dossier.pdf (A4 ফরম্যাটেড PDF ডসিয়ার)")
+                    appendLine("  ৪. land_records_full.json (স্ট্রাকচার্ড JSON ডাটাবেস এক্সপোর্ট)")
+                    appendLine("  ৫. land_records_summary.txt (আইনি সারসংক্ষেপ প্রতিবেদন)")
+                    appendLine("  ৬. documents/<নথি>/ (সকল মূল PDF, ছবি, ও প্রসেসকৃত পাতা)")
                     appendLine("--------------------------------------------------")
                     all.take(15).forEachIndexed { idx, doc ->
                         appendLine("${idx + 1}. ${doc.title} (${doc.classifiedType}) - খতিয়ান: ${doc.primaryKhatianNo ?: "—"}, দাগ: ${doc.primaryDagNo ?: "—"}")
@@ -224,7 +237,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Saves consolidated multi-record summary report or full ZIP archive directly to local SAF / PC disk URI.
+     * Saves consolidated multi-record summary report, formatted PDF, or full ZIP archive directly to local SAF / PC disk URI.
      */
     fun saveBatchReportToSafUri(
         uri: Uri,
@@ -236,16 +249,27 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             _processingMessage.value = "পিসি / লোকাল ডিস্কে ফাইল সংরক্ষণ হচ্ছে..."
 
             val all = uiState.value.documents
-            val result = if (format == ExportFormat.ZIP) {
-                val pairs = all.map { doc ->
-                    val data = repository.parseDataJson(doc.extractedDataJson)
-                    Pair(doc, data)
+            val result = when (format) {
+                ExportFormat.ZIP -> {
+                    val pairs = all.map { doc ->
+                        val data = repository.parseDataJson(doc.extractedDataJson)
+                        Pair(doc, data)
+                    }
+                    val zipBytes = ReportExportManager.buildFullMassExportZipBytes(getApplication(), all, pairs)
+                    ReportExportManager.writeBytesToSafUri(getApplication(), uri, zipBytes)
                 }
-                val zipBytes = ReportExportManager.buildFullMassExportZipBytes(getApplication(), all, pairs)
-                ReportExportManager.writeBytesToSafUri(getApplication(), uri, zipBytes)
-            } else {
-                val content = getBatchPreviewContent(format)
-                ReportExportManager.writeContentToSafUri(getApplication(), uri, content)
+                ExportFormat.PDF -> {
+                    val pairs = all.map { doc ->
+                        val data = repository.parseDataJson(doc.extractedDataJson)
+                        Pair(doc, data)
+                    }
+                    val pdfBytes = ReportExportManager.buildBatchFormattedPdfBytes(pairs)
+                    ReportExportManager.writeBytesToSafUri(getApplication(), uri, pdfBytes)
+                }
+                else -> {
+                    val content = getBatchPreviewContent(format)
+                    ReportExportManager.writeContentToSafUri(getApplication(), uri, content)
+                }
             }
             _isBatchProcessing.value = false
 
@@ -261,7 +285,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     /**
-     * Saves consolidated multi-record summary report or full ZIP archive directly into
+     * Saves consolidated multi-record summary report, formatted PDF, or full ZIP archive directly into
      * Phone Memory (Downloads/NewazLandRecords/) with a single click.
      */
     fun saveBatchReportToPhoneDownloads(
@@ -274,16 +298,27 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
             val all = uiState.value.documents
             val fileName = suggestBatchFileName(format)
-            val result = if (format == ExportFormat.ZIP) {
-                val pairs = all.map { doc ->
-                    val data = repository.parseDataJson(doc.extractedDataJson)
-                    Pair(doc, data)
+            val result = when (format) {
+                ExportFormat.ZIP -> {
+                    val pairs = all.map { doc ->
+                        val data = repository.parseDataJson(doc.extractedDataJson)
+                        Pair(doc, data)
+                    }
+                    val zipBytes = ReportExportManager.buildFullMassExportZipBytes(getApplication(), all, pairs)
+                    ReportExportManager.saveBytesToPhoneDownloads(getApplication(), fileName, format.mimeType, zipBytes)
                 }
-                val zipBytes = ReportExportManager.buildFullMassExportZipBytes(getApplication(), all, pairs)
-                ReportExportManager.saveBytesToPhoneDownloads(getApplication(), fileName, format.mimeType, zipBytes)
-            } else {
-                val content = getBatchPreviewContent(format)
-                ReportExportManager.saveTextToPhoneDownloads(getApplication(), fileName, format.mimeType, content)
+                ExportFormat.PDF -> {
+                    val pairs = all.map { doc ->
+                        val data = repository.parseDataJson(doc.extractedDataJson)
+                        Pair(doc, data)
+                    }
+                    val pdfBytes = ReportExportManager.buildBatchFormattedPdfBytes(pairs)
+                    ReportExportManager.saveBytesToPhoneDownloads(getApplication(), fileName, format.mimeType, pdfBytes)
+                }
+                else -> {
+                    val content = getBatchPreviewContent(format)
+                    ReportExportManager.saveTextToPhoneDownloads(getApplication(), fileName, format.mimeType, content)
+                }
             }
             _isBatchProcessing.value = false
 
@@ -322,16 +357,27 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 val exportDir = File(app.cacheDir, "exports").apply { mkdirs() }
                 val fileName = suggestBatchFileName(format)
                 val outFile = File(exportDir, fileName)
-                if (format == ExportFormat.ZIP) {
-                    val pairs = all.map { doc ->
-                        val data = repository.parseDataJson(doc.extractedDataJson)
-                        Pair(doc, data)
+                when (format) {
+                    ExportFormat.ZIP -> {
+                        val pairs = all.map { doc ->
+                            val data = repository.parseDataJson(doc.extractedDataJson)
+                            Pair(doc, data)
+                        }
+                        val zipBytes = ReportExportManager.buildFullMassExportZipBytes(app, all, pairs)
+                        outFile.writeBytes(zipBytes)
                     }
-                    val zipBytes = ReportExportManager.buildFullMassExportZipBytes(app, all, pairs)
-                    outFile.writeBytes(zipBytes)
-                } else {
-                    val content = getBatchPreviewContent(format)
-                    outFile.writeText(content, Charsets.UTF_8)
+                    ExportFormat.PDF -> {
+                        val pairs = all.map { doc ->
+                            val data = repository.parseDataJson(doc.extractedDataJson)
+                            Pair(doc, data)
+                        }
+                        val pdfBytes = ReportExportManager.buildBatchFormattedPdfBytes(pairs)
+                        outFile.writeBytes(pdfBytes)
+                    }
+                    else -> {
+                        val content = getBatchPreviewContent(format)
+                        outFile.writeText(content, Charsets.UTF_8)
+                    }
                 }
                 _isBatchProcessing.value = false
                 ReportExportManager.shareFile(app, outFile, format.mimeType, "ভূমি রেকর্ড বাল্ক আর্কাইভ ($fileName)")

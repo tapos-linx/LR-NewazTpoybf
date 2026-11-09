@@ -31,6 +31,8 @@ import com.example.ui.screens.ocr.LandRecordGeminiScreen
 import com.example.ui.screens.ocr.LandRecordGeminiViewModel
 import com.example.ui.screens.tasks.TaskManagerScreen
 import com.example.ui.screens.upload.BulkUploadScreen
+import com.example.ui.screens.drive.GoogleDriveInjectScreen
+import com.example.ui.screens.drive.GoogleDriveInjectViewModel
 
 object Destinations {
     const val HOME = "home"
@@ -46,6 +48,7 @@ object Destinations {
     const val SAF_IMPORT = "saf_import"
     const val TESSERACT = "tesseract_setup"
     const val GEMINI_OCR = "gemini_ocr"
+    const val GOOGLE_DRIVE_INJECT = "google_drive_inject"
 
     fun detailRoute(documentId: String) = "detail/$documentId"
 }
@@ -100,6 +103,9 @@ fun AppNavigation(
                 },
                 onNavigateToTaskManager = {
                     navController.navigate(Destinations.TASK_MANAGER)
+                },
+                onNavigateToGoogleDrive = {
+                    navController.navigate(Destinations.GOOGLE_DRIVE_INJECT)
                 }
             )
         }
@@ -190,6 +196,9 @@ fun AppNavigation(
                 onNavigateBack = { navController.popBackStack() },
                 onProcessingFinished = {
                     navController.popBackStack()
+                },
+                onNavigateToGoogleDrive = {
+                    navController.navigate(Destinations.GOOGLE_DRIVE_INJECT)
                 }
             )
         }
@@ -242,6 +251,19 @@ fun AppNavigation(
             LandRecordGeminiScreen(
                 viewModel = geminiViewModel,
                 onNavigateBack = { navController.popBackStack() }
+            )
+        }
+
+        composable(Destinations.GOOGLE_DRIVE_INJECT) {
+            val driveViewModel: GoogleDriveInjectViewModel = viewModel()
+            GoogleDriveInjectScreen(
+                viewModel = driveViewModel,
+                onNavigateBack = { navController.popBackStack() },
+                onExtractionComplete = {
+                    navController.navigate(Destinations.GALLERY) {
+                        popUpTo(Destinations.HOME)
+                    }
+                }
             )
         }
     }

@@ -168,6 +168,29 @@ fun DocumentDetailScreen(
                             }
                         )
                         DropdownMenuItem(
+                            text = { Text("PDF ডসিয়ার শেয়ার করুন") },
+                            onClick = {
+                                showMenu = false
+                                viewModel.exportPdf { file ->
+                                    ReportExportManager.shareFile(
+                                        context = context,
+                                        file = file,
+                                        mimeType = "application/pdf",
+                                        subject = "বাংলাদেশ ভূমি রেকর্ড ফরেনসিক PDF ডসিয়ার"
+                                    )
+                                }
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("PDF ডসিয়ার ফোনে ডাউনলোড (Downloads)") },
+                            onClick = {
+                                showMenu = false
+                                viewModel.saveReportToPhoneDownloads(ExportFormat.PDF) { _, msg ->
+                                    Toast.makeText(context, msg, Toast.LENGTH_LONG).show()
+                                }
+                            }
+                        )
+                        DropdownMenuItem(
                             text = { Text("JSON রিপোর্ট শেয়ার করুন") },
                             onClick = {
                                 showMenu = false
@@ -356,10 +379,12 @@ fun DocumentDetailScreen(
             suggestedFileNameJson = viewModel.suggestFileName(ExportFormat.JSON),
             suggestedFileNameText = viewModel.suggestFileName(ExportFormat.TEXT),
             suggestedFileNameCsv = viewModel.suggestFileName(ExportFormat.CSV),
+            suggestedFileNamePdf = viewModel.suggestFileName(ExportFormat.PDF),
             suggestedFileNameZip = viewModel.suggestFileName(ExportFormat.ZIP),
             jsonPreview = viewModel.getReportContentPreview(ExportFormat.JSON),
             textPreview = viewModel.getReportContentPreview(ExportFormat.TEXT),
             csvPreview = viewModel.getReportContentPreview(ExportFormat.CSV),
+            pdfPreview = viewModel.getReportContentPreview(ExportFormat.PDF),
             zipPreview = viewModel.getReportContentPreview(ExportFormat.ZIP),
             initialFormat = ExportFormat.CSV,
             onSaveToSafUri = { uri, format ->
@@ -382,6 +407,16 @@ fun DocumentDetailScreen(
                                 file = file,
                                 mimeType = "text/csv",
                                 subject = "বাংলাদেশ ভূমি রেকর্ড মেটাডাটা CSV"
+                            )
+                        }
+                    }
+                    ExportFormat.PDF -> {
+                        viewModel.exportPdf { file ->
+                            ReportExportManager.shareFile(
+                                context = context,
+                                file = file,
+                                mimeType = "application/pdf",
+                                subject = "বাংলাদেশ ভূমি রেকর্ড ফরেনসিক PDF ডসিয়ার"
                             )
                         }
                     }

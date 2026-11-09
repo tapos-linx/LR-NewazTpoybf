@@ -40,6 +40,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Crop
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.FlashOff
 import androidx.compose.material.icons.filled.FlashOn
@@ -121,6 +122,7 @@ fun CameraCaptureScreen(
     var cameraControl: Camera? by remember { mutableStateOf(null) }
 
     var selectedPreviewFile by remember { mutableStateOf<Pair<Int, File>?>(null) }
+    var cropTargetPage by remember { mutableStateOf<Pair<Int, File>?>(null) }
     var showNameDialog by remember { mutableStateOf(false) }
 
     // Toggle Torch on/off
@@ -327,17 +329,42 @@ fun CameraCaptureScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 24.dp, vertical = 8.dp),
+                        .padding(horizontal = 20.dp, vertical = 8.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Page Counter
-                    Text(
-                        text = "${uiState.capturedFiles.size} পাতা স্ক্যান",
-                        color = Color.White,
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.Medium
-                    )
+                    // Page Counter & Quick Crop Button
+                    if (uiState.capturedFiles.isNotEmpty()) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            IconButton(
+                                onClick = {
+                                    val lastIdx = uiState.capturedFiles.size - 1
+                                    cropTargetPage = Pair(lastIdx, uiState.capturedFiles[lastIdx])
+                                },
+                                modifier = Modifier
+                                    .size(42.dp)
+                                    .background(Color.White.copy(alpha = 0.25f), CircleShape)
+                                    .testTag("btn_quick_crop_last")
+                            ) {
+                                Icon(Icons.Default.Crop, contentDescription = "ক্রপ টুল", tint = Color.White)
+                            }
+                            Text(
+                                text = "${uiState.capturedFiles.size} পাতা",
+                                color = Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    } else {
+                        Text(
+                            text = "০ পাতা স্ক্যান",
+                            color = Color.LightGray,
+                            fontSize = 12.sp
+                        )
+                    }
 
                     // Big Shutter Button
                     Box(
@@ -481,6 +508,21 @@ fun CameraCaptureScreen(
                             .clip(RoundedCornerShape(8.dp))
                     )
                     Spacer(modifier = Modifier.height(12.dp))
+                    Button(
+                        onClick = {
+                            cropTargetPage = Pair(index, file)
+                            selectedPreviewFile = null
+                        },
+                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("btn_dialog_crop_page")
+                    ) {
+                        Icon(Icons.Default.Crop, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("কাটুন ও সোজা করুন (Crop & Align)", fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly
@@ -522,6 +564,28 @@ fun CameraCaptureScreen(
             dismissButton = {
                 TextButton(onClick = { selectedPreviewFile = null }) {
                     Text("ঠিক আছে")
+                }
+            }
+        )
+    }
+
+    // Document Crop & Align Dialog
+    cropTargetPage?.let { (index, file) ->
+        DocumentCropAlignDialog(
+            imageFile = file,
+            pageIndex = index,
+            onDismiss = { cropTargetPage = null },
+            onApplyCrop = { cropLeft, cropTop, cropRight, cropBottom, totalRotation ->
+                viewModel.cropAndAlignPage(
+                    index = index,
+                    cropLeft = cropLeft,
+                    cropTop = cropTop,
+                    cropRight = cropRight,
+                    cropBottom = cropBottom,
+                    rotationDegrees = totalRotation
+                ) {
+                    cropTargetPage = null
+                    Toast.makeText(context, "পাতা ${index + 1} সফলভাবে ক্রপ ও এলাইন করা হয়েছে", Toast.LENGTH_SHORT).show()
                 }
             }
         )
