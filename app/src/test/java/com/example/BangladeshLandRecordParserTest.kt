@@ -1,9 +1,11 @@
 package com.example
 
+import com.example.data.model.ConfidenceLevel
 import com.example.data.model.LandRecordType
 import com.example.domain.parser.BangladeshLandRecordParser
+import com.example.domain.saf.SafFolderScanner
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -29,8 +31,36 @@ class BangladeshLandRecordParserTest {
         assertEquals("জয়দেবপুর", parsed.upazilaThana.value)
         assertEquals("কাশিমপুর", parsed.mouza.value)
         assertEquals("৬৫", parsed.jlNo.value)
+        assertEquals("১১৮", parsed.formerDagNo.value)
+        assertEquals("২৫৪", parsed.halDagNo.value)
         assertEquals("নাল", parsed.landClass.value)
+        assertEquals(1, parsed.owners.size)
+        assertEquals("মোঃ সিরাজুল ইসলাম", parsed.owners[0].name)
         assertTrue(parsed.isHissaValid)
+    }
+
+    @Test
+    fun testMissingFieldsNeverInventDefaultLocationsOrOwners() {
+        val parsed = BangladeshLandRecordParser.parse("", "unknown_scan.pdf", 1)
+
+        assertEquals("", parsed.district.value)
+        assertEquals(ConfidenceLevel.UNCERTAIN, parsed.district.confidence)
+        assertEquals("", parsed.upazilaThana.value)
+        assertEquals("", parsed.mouza.value)
+        assertEquals("", parsed.jlNo.value)
+        assertEquals("", parsed.khatianNo.value)
+        assertEquals("", parsed.dagNo.value)
+        assertEquals("", parsed.areaDecimals.value)
+        assertTrue("Owners must never be fabricated on empty text", parsed.owners.isEmpty())
+        assertTrue(parsed.validationWarnings.isNotEmpty())
+    }
+
+    @Test
+    fun testZipPathTraversalProtection() {
+        assertFalse(SafFolderScanner.isSafeZipEntryPath("../../etc/passwd"))
+        assertFalse(SafFolderScanner.isSafeZipEntryPath("/etc/hosts"))
+        assertFalse(SafFolderScanner.isSafeZipEntryPath("folder/../../../evil.pdf"))
+        assertTrue(SafFolderScanner.isSafeZipEntryPath("CS_Records/403_khatian.pdf"))
     }
 
     @Test

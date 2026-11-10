@@ -1,87 +1,87 @@
 """
-FastAPI Router for Bangla Handwriting Recognition (HCR).
-Supports crop transcription, marginalia extraction, and manual verification audits.
+API Router for Bengali Handwritten Character Recognition (HCR) & Manual Correction Audit Trail.
+Persists all manual corrections and audit events in SQLite via `archive_store`.
 """
 
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
-from typing import Dict, Any, List, Optional
-from pydantic import BaseModel
-import json
-from ai.hcr.recognizer import BanglaHcrRecognizer
+from __future__ import annotations
 
-router = APIRouter(prefix="/api/v1/hcr", tags=["Bangla HCR"])
-hcr_engine = BanglaHcrRecognizer()
+from typing import Any, Dict, Optional
+from backend.compat import APIRouter, BaseModel, Field, File, Form, HTTPException, UploadFile
 
-# Audit log for manual corrections
-_correction_audit_log: List[Dict[str, Any]] = []
+from ai.hcr.recognizer import BanglaHandwritingRecognizer
+from backend.db.models import archive_store
 
-class HcrCorrectionPayload(BaseModel):
-    document_id: str
-    page_number: int
-    original_transcription: str
-    corrected_transcription: str
-    confidence: float
-    editor_name: Optional[str] = "Forensic Analyst"
-    notes: Optional[str] = None
+router = APIRouter()
+recognizer = BanglaHandwritingRecognizer(confidence_threshold=0.70)
 
-@router.post("/recognize-crop")
-async def recognize_handwritten_crop(
+
+class ManualCorrectionPayload(BaseModel):
+    document_id: str = Field(..., description="Target document UUID")
+    page_number: int = Field(1, ge=1)
+    field_name: str = Field(..., description="Field being corrected, e.g., owner_name, dag_no, marginal_note")
+    original_ocr_text: str = Field(..., description="Raw HCR output before human correction")
+    corrected_text: str = Field(..., description="Human-verified Bengali transcription")
+    reviewer_id: str = Field("legal_researcher_01", description="User ID performing verification")
+    confidence_before: float = Field(0.55, ge=0.0, le=1.0)
+    notes: Optional[str] = Field(None, description="Evidence or physical ledger inspection remark")
+
+
+@router.post("/recognize", summary="Run Bengali HCR on uploaded document image")
+async def recognize_bengali_handwriting(
     file: UploadFile = File(...),
-    context_hint: Optional[str] = Form("general")
-):
-    """
-    Transcribes a handwritten crop (e.g. signature, marginal note, owner share)
-    with token-level confidence scores and low-confidence flags.
-    """
-    image_bytes = await file.read()
-    if not image_bytes:
-        raise HTTPException(status_code=400, detail="Empty image data")
+    region_hint: str = Form("full_page"),
+    raw_text_override: Optional[str] = Form(None),
+) -> Dict[str, Any]:
+    raw_bytes = await file.read()
+    if len(raw_bytes) == 0 and raw_text_override is None:
+        raise HTTPException(status_code=400, detail="Zero-byte file uploaded. Cannot run HCR.")
 
-    result = hcr_engine.recognize_crop(image_bytes, context_hint=context_hint)
-    return result
+    hcr_result = recognizer.recognize_handwriting(
+        raw_bytes,
+        region_hint=region_hint,
+        raw_text_override=raw_text_override,
+    )
+    marginalia = recognizer.transcribe_marginal_notes(raw_bytes) if len(raw_bytes) > 0 else {
+        "region": "marginal_notes",
+        "status": hcr_result.get("status", "NEEDS_MANUAL_REVIEW"),
+        "transcription": "",
+        "confidence": 0.0,
+        "requires_manual_review": True,
+        "tokens": [],
+    }
 
-@router.post("/marginalia")
-async def scan_marginalia(file: UploadFile = File(...)):
-    """
-    Specifically targets marginal notes, amendment scribbles, and office seals.
-    """
-    image_bytes = await file.read()
-    if not image_bytes:
-        raise HTTPException(status_code=400, detail="Empty image data")
-
-    marginal_notes = hcr_engine.transcribe_marginal_notes(image_bytes)
     return {
         "filename": file.filename,
-        "marginal_notes_count": len(marginal_notes),
-        "notes": marginal_notes
+        "byte_size": len(raw_bytes),
+        "hcr_analysis": hcr_result,
+        "marginal_notes": marginalia,
     }
 
-@router.post("/correct")
-async def submit_manual_correction(payload: HcrCorrectionPayload):
-    """
-    Saves a manual correction in the audit trail without destroying the original HCR output.
-    Zero-Data-Loss guarantee: both original and corrected versions are maintained.
-    """
-    record = {
-        "document_id": payload.document_id,
-        "page_number": payload.page_number,
-        "original_transcription": payload.original_transcription,
-        "corrected_transcription": payload.corrected_transcription,
-        "original_confidence": payload.confidence,
-        "editor_name": payload.editor_name,
-        "notes": payload.notes,
-        "status": "MANUALLY_VERIFIED"
-    }
-    _correction_audit_log.append(record)
+
+@router.post("/correct", summary="Submit human correction with immutable audit trail")
+async def submit_manual_correction(payload: ManualCorrectionPayload) -> Dict[str, Any]:
+    audit_entry = archive_store.record_hcr_correction(
+        document_id=payload.document_id,
+        page_number=payload.page_number,
+        field_name=payload.field_name,
+        original_ocr_text=payload.original_ocr_text,
+        corrected_text=payload.corrected_text,
+        reviewer_id=payload.reviewer_id,
+        confidence_before=payload.confidence_before,
+        notes=payload.notes,
+    )
     return {
-        "status": "success",
-        "message": "Manual correction recorded in forensic audit trail.",
-        "record": record
+        "status": "CORRECTION_PERSISTED",
+        "zero_data_loss_preserved": True,
+        "audit_record": audit_entry,
     }
 
-@router.get("/audit-log")
-async def get_correction_audit_log():
+
+@router.get("/corrections/{document_id}", summary="Get immutable revision history for a document")
+async def get_correction_history(document_id: str) -> Dict[str, Any]:
+    history = archive_store.get_hcr_corrections(document_id)
     return {
-        "total_corrections": len(_correction_audit_log),
-        "audit_trail": _correction_audit_log
+        "document_id": document_id,
+        "total_revisions": len(history),
+        "revisions": history,
     }

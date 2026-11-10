@@ -1,65 +1,68 @@
 """
-FastAPI Router for Cadastral Survey Map Intelligence (GIS).
-Enforces zero-data-loss and strictly highlights ONLY inheritance-matched plots.
+API Router for Cadastral Map Detection, Target Dag Highlighting, and GeoJSON Export.
+Never fabricates parcel grids, sequential Dag numbers, or GPS coordinates.
 """
 
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException
-from typing import Dict, Any, List, Optional
-from pydantic import BaseModel
+from __future__ import annotations
+
 import json
+from typing import Any, Dict, List, Optional
+from backend.compat import APIRouter, File, Form, HTTPException, UploadFile
+
 from ai.gis.map_detector import CadastralMapDetector
 
-router = APIRouter(prefix="/api/v1/gis", tags=["Cadastral Map GIS"])
-detector = CadastralMapDetector()
+router = APIRouter()
 
-class HighlightRequest(BaseModel):
-    target_dags: List[str]
-    survey_type: Optional[str] = "CS"
-    mouza_name: Optional[str] = None
-    khatian_no: Optional[str] = None
 
-@router.post("/detect-map")
-async def detect_cadastral_map(
+@router.post("/detect-parcels", summary="Detect parcels & highlight ONLY matched target Dags")
+async def detect_cadastral_parcels(
     file: UploadFile = File(...),
-    survey_type: Optional[str] = Form("CS")
-):
-    """
-    Detects parcels, plot numbers, road networks, water bodies, sheet number, and north arrow.
-    """
-    image_bytes = await file.read()
-    if not image_bytes:
-        raise HTTPException(status_code=400, detail="Empty map file")
+    survey_type: str = Form("RS"),
+    target_dags_csv: str = Form("", description="Comma-separated target Dag numbers, e.g., '502,505'"),
+    ocr_dag_map_json: Optional[str] = Form(None, description="Optional JSON map of parcel_index -> dag_no"),
+    origin_lat: Optional[float] = Form(None),
+    origin_lon: Optional[float] = Form(None),
+    pixel_to_degree_scale: Optional[float] = Form(None),
+) -> Dict[str, Any]:
+    raw_bytes = await file.read()
+    if len(raw_bytes) == 0:
+        raise HTTPException(status_code=400, detail="Zero-byte map file rejected.")
 
-    det = CadastralMapDetector(survey_type=survey_type)
-    result = det.detect_parcels(image_bytes)
-    return result
+    target_dags: List[str] = [d.strip() for d in target_dags_csv.split(",") if d.strip()]
+    ocr_dag_map: Optional[Dict[int, str]] = None
+    if ocr_dag_map_json:
+        try:
+            raw_map = json.loads(ocr_dag_map_json)
+            ocr_dag_map = {int(k): str(v) for k, v in raw_map.items()}
+        except Exception as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid ocr_dag_map_json: {exc}")
 
-@router.post("/highlight-inheritance")
-async def highlight_inheritance_plots(
-    file: UploadFile = File(...),
-    target_dags: str = Form("501, 505") # Comma-separated Dag numbers
-):
-    """
-    STRICT FORENSIC RULE:
-    Highlights ONLY the lands matched from the inheritance certificate.
-    Does NOT highlight all parcels.
-    """
-    image_bytes = await file.read()
-    if not image_bytes:
-        raise HTTPException(status_code=400, detail="Empty map file")
+    detector = CadastralMapDetector(survey_type=survey_type)
+    detection = detector.detect_parcels(
+        raw_bytes,
+        target_dags=target_dags,
+        ocr_dag_map=ocr_dag_map,
+    )
+    geojson = detector.export_geojson(
+        detection,
+        origin_lat=origin_lat,
+        origin_lon=origin_lon,
+        pixel_to_degree_scale=pixel_to_degree_scale,
+    )
 
-    dags_list = [d.strip() for d in target_dags.split(",") if d.strip()]
-    det = CadastralMapDetector(survey_type="CS")
-    result = det.highlight_target_dags(image_bytes, dags_list)
-    return result
-
-@router.get("/surveys/supported")
-async def get_supported_surveys():
     return {
-        "supported_cadastral_surveys": [
-            {"code": "CS", "name": "Cadastral Survey (1888-1940)", "scale": "16 inch = 1 mile"},
-            {"code": "SA", "name": "State Acquisition Survey (1956-1962)", "scale": "16 inch = 1 mile"},
-            {"code": "RS", "name": "Revisional Survey (1965-1990)", "scale": "16 or 32 inch = 1 mile"},
-            {"code": "BS_BRS", "name": "Bangladesh Survey / City Survey (1998-Present)", "scale": "32 or 64 inch = 1 mile"}
-        ]
+        "filename": file.filename,
+        "detection_summary": {
+            "status": detection["status"],
+            "survey_type": detection["survey_type"],
+            "coordinate_system": detection["coordinate_system"],
+            "is_georeferenced": detection["is_georeferenced"],
+            "total_parcels_detected": detection["total_parcels_detected"],
+            "highlighted_target_count": detection["highlighted_target_count"],
+            "requested_target_dags": target_dags,
+            "highlighting_rule": detection["highlighting_rule"],
+            "requires_manual_review": detection["requires_manual_review"],
+        },
+        "detection": detection,
+        "geojson": geojson,
     }

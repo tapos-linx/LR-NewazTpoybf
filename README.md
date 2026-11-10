@@ -1,296 +1,107 @@
-# Newaz Land Record Extractor
+# বাংলাদেশ ভূমি রেকর্ড এক্সট্রাক্টর ও ফরেনসিক রিসার্চ প্ল্যাটফর্ম
+## Bangladesh Land Record Extraction & Forensic Research Platform (`LR-NewazTpoybf`)
 
-[![Android](https://img.shields.io/badge/Platform-Android-green.svg)](https://developer.android.com)
-[![Kotlin](https://img.shields.io/badge/Language-Kotlin-purple.svg)](https://kotlinlang.org)
-[![Jetpack Compose](https://img.shields.io/badge/UI-Jetpack%20Compose%20M3-blue.svg)](https://developer.android.com/jetpack/compose)
-[![Offline First](https://img.shields.io/badge/Privacy-100%25%20Offline-brightgreen.svg)](#offline-first--privacy)
-[![License](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](LICENSE)
-[![F-Droid](https://img.shields.io/badge/F--Droid-Compatible-3DDC84.svg?logo=fdroid)](FDROID.md)
-[![Download APK](https://img.shields.io/badge/Download%20APK-26%20MB-blue.svg)](app-debug.apk)
+[![CI Verification](https://github.com/tapos-linx/LR-NewazTpoybf/actions/workflows/ci.yml/badge.svg)](https://github.com/tapos-linx/LR-NewazTpoybf/actions/workflows/ci.yml)
+[![Android Build](https://github.com/tapos-linx/LR-NewazTpoybf/actions/workflows/android.yml/badge.svg)](https://github.com/tapos-linx/LR-NewazTpoybf/actions/workflows/android.yml)
+[![Backend AI Engine](https://github.com/tapos-linx/LR-NewazTpoybf/actions/workflows/backend.yml/badge.svg)](https://github.com/tapos-linx/LR-NewazTpoybf/actions/workflows/backend.yml)
+[![Release APK](https://github.com/tapos-linx/LR-NewazTpoybf/actions/workflows/release.yml/badge.svg)](https://github.com/tapos-linx/LR-NewazTpoybf/releases)
 
-**Newaz Land Record Extractor** is a local, evidence-preserving Android application engineered for extracting, validating, and managing Bangladesh land records (Porcha/Khatian, Dag, Mouza, Deeds, Mutation, Dakhila) from PDFs, scanned images, and multi-page camera captures.
-
-Developed for target repository: **`tapos-py/newaz-lrecord-extractor`**
+A production-grade **Android (Kotlin + Jetpack Compose + Room)** and **Python (FastAPI + OpenCV + Tesseract + SQLite)** forensic land record platform engineered for Bangladesh historical and modern cadastral surveys (**CS, SA, RS, BS/BRS, City Jarip**), **Registered Deeds (দলিল)**, **Mutations (নামজারি/খারিজ)**, **Warish / Inheritance Certificates (ওয়ারিশ সনদ)**, and **Cadastral Mouza Maps (মৌজা নকশা)**.
 
 ---
 
-## 📲 ফোন মেমোরিতে সরাসরি ডাউনলোড ও ইনস্টল (Direct Download APK to Phone)
+## ১. ফরেনসিক নীতিমালা (Core Forensic Integrity Principles)
 
-ব্যবহারকারীরা সরাসরি রিপোজিটরি থেকে APK ফাইলটি ফোনের মেমোরিতে ডাউনলোড করে ইনস্টল করতে পারবেন:
+1. **Zero Fabricated Results (কোনো কাল্পনিক তথ্য নয়)**:
+   - Production OCR (`ZeroLossOcrEngine`, `BengaliOfflineOcrEngine`), Handwriting Recognition (`BanglaHandwritingRecognizer`, `BanglaHcrEngine`), Cadastral Map Detection (`CadastralMapDetector`), and Warish Reconciliation (`InheritancePlotMatcher`, `InheritanceMatcher`) **never** invent Khatian numbers, Dag numbers, Mouza names, owner names, road lines, water bodies, or GPS coordinates when extraction fails or models are unavailable.
+   - Missing or unreadable inputs return explicit forensic statuses: `PROCESSING_FAILED`, `NEEDS_MANUAL_REVIEW`, `NOT_CONFIGURED`, `UNSUPPORTED_FORMAT`, or `NO_MATCH`.
+   - Unclear OCR/HCR tokens are preserved alongside `[Unclear: reason]` annotations and immutable human-correction audit logs.
+   - Any synthetic test fixtures are strictly isolated to test helpers and explicitly tagged `SYNTHETIC_TEST_DATA`.
 
-### 📥 সরাসরি APK ডাউনলোড লিংক (Direct APK Download Links):
-- 🔹 **সরাসরি ডাউনলোড (Direct Repository APK):** [**`app-debug.apk` (26 MB)**](https://github.com/tapos-py/newaz-lrecord-extractor/raw/main/app-debug.apk)
-- 🔹 **অফিসিয়াল রিলিজ পৃষ্ঠা (GitHub Releases):** [**LR-Newaz v1.0 Production Releases**](https://github.com/tapos-py/newaz-lrecord-extractor/releases)
+2. **Evidence-Tiered Title Chain & Warish Hissa Arithmetic**:
+   - Reconciles **CS (1888–1940) → SA (1956–1962) → RS (1965–present) → BS/BRS → Deeds → Mutations → Warish Certificates**.
+   - Uses exact rational (`Fraction` / `BigDecimal`) arithmetic to validate **16 Annas (`1.000`)** share totals.
+   - Assigns `VERIFIED` only when a continuous documentary chain is corroborated by parent/spouse identity, Mouza/Dag alignment, **and** human review sign-off; otherwise classifies as `CORROBORATED`, `PROBABLE`, `POSSIBLE`, `RECORD_GAP`, `CONTRADICTORY`, or `NO_MATCH`.
+
+3. **Hardened Document Ingestion (SAF, CameraX Crop/Align, Google Drive, ZIP)**:
+   - Supports recursive folder trees, multi-file selection, and `.zip` archive unpacking via Android Storage Access Framework (SAF) with **zero broad storage permissions** (`READ_EXTERNAL_STORAGE` / `MANAGE_EXTERNAL_STORAGE` are never requested).
+   - Enforces **ZipSlip path-traversal blocking**, **ZIP bomb decompression caps** (`MAX_ZIP_ENTRIES = 500`, `200 MB` uncompressed ceiling), **zero-byte file detection**, and **SHA-256 content deduplication**.
+   - Includes interactive **CameraX manual 4-corner cropping, 90° rotation, and contrast enhancement** prior to OCR.
+
+4. **Multi-Format Forensic Exports**:
+   - **PDF (`.pdf`)**: Multi-page A4 formatted report (or portable PDF-1.4 stream in headless environments).
+   - **Excel Workbook (`.xlsx`)**: Standards-compliant 9-sheet OpenXML `.xlsx` archive (`Metadata`, `Documents`, `Survey_Chain`, `Dags`, `Owners`, `Heirs`, `Shares`, `Discrepancies`, `Evidence`).
+   - **CSV (`.csv`)**: UTF-8 with BOM (`\uFEFF`) for direct Bengali rendering in Microsoft Excel.
+   - **JSON (`.json`) & GeoJSON (`.geojson`)**: Versioned schema (`2.0.0`) with explicit `PIXEL_SPACE` vs `GEOGRAPHIC_WGS84` coordinate separation.
+   - **ZIP Bundle (`.zip`)**: Complete portable forensic archive.
 
 ---
 
-### 📱 কীভাবে ফোনে ইনস্টল করবেন (Step-by-Step Installation Guide):
+## ২. প্রজেক্ট আর্কিটেকচার (Repository Structure)
 
 ```text
-১. ডাউনলোড করুন              ২. ফাইলটি ওপেন করুন            ৩. পারমিশন দিন ও ইনস্টল করুন
-   [app-debug.apk]   --->   [Downloads ফোল্ডার]   --->   [Settings -> Allow -> Install]
+LR-NewazTpoybf/
+├── app/                                      # Android Client (Kotlin, Jetpack Compose, Room v6)
+│   └── src/
+│       ├── main/java/com/example/
+│       │   ├── data/local/                   # Room Database v6 + explicit Migrations (1->6), Entities, DAOs
+│       │   ├── data/model/                   # Domain Models, BengaliNumberUtils, Confidence Levels
+│       │   ├── data/repository/              # LandRecordRepository, InheritorRepository, ExtractedLandRecordRepository
+│       │   ├── domain/
+│       │   │   ├── atlas/                    # Historical Survey Chain & Dag Split Engine
+│       │   │   ├── drive/                    # Google Drive Direct Injection Manager
+│       │   │   ├── export/                   # PDF, XLSX, CSV (UTF-8 BOM), JSON, TXT, ZIP Exporter
+│       │   │   ├── gis/                      # Cadastral Map Detector & Target-Only Dag Highlighter
+│       │   │   ├── hcr/                      # Bengali Handwriting Preprocessor & Correction Audit Engine
+│       │   │   ├── image/                    # ImagePreprocessor, Crop/Align & PDF Page Renderer
+│       │   │   ├── matcher/                  # Warish Inheritance Hissa & Survey Matcher
+│       │   │   ├── ocr/                      # TesseractOcrService, BengaliOfflineOcrEngine, TessDataManager
+│       │   │   ├── parser/                   # Deterministic BangladeshLandRecordParser (Zero-Fabrication)
+│       │   │   ├── saf/                      # SafFolderScanner (ZipSlip/ZipBomb Defense + SHA-256)
+│       │   │   ├── search/                   # Bengali/English Normalized Search Engine
+│       │   │   └── validation/               # ForensicValidationEngine
+│       │   ├── ui/screens/                   # Compose Material 3 Screens (Home, SAF, Drive, Camera, Detail, Warish, Gallery)
+│       │   └── worker/                       # WorkManager Durable BatchExtractionWorker
+│       └── test/java/com/example/            # JUnit4 + Robolectric Automated Test Suite
+├── ai/                                       # Python AI & Cadastral Processing Modules
+│   ├── ocr/pipeline.py                       # ZeroLossOcrEngine (Tesseract ben+eng + [Unclear] tagging)
+│   ├── hcr/recognizer.py                     # BanglaHandwritingRecognizer (OpenCV CLAHE + Deskew + Audit)
+│   ├── gis/map_detector.py                   # CadastralMapDetector (Contour Polygons + PIXEL_SPACE GeoJSON)
+│   └── matcher/inheritance_matcher.py        # InheritancePlotMatcher (Exact Fraction/Decimal 16-Anna Engine)
+├── backend/                                  # FastAPI Server & SQLite Forensic Store
+│   ├── main.py                               # CORS Allowlist, API Key Auth Middleware, Size Limits, /health
+│   ├── compat.py                             # FastAPI/Stdlib Compatibility Layer
+│   ├── db/models.py                          # ForensicArchiveStore (Thread-Safe SQLite Persistence)
+│   ├── api/                                  # Routers: bulk_upload, hcr, gis, matcher, export
+│   └── tests/test_forensic_platform.py       # Automated Python Forensic Test Suite
+└── .github/workflows/                        # Strict CI/CD Pipelines (ci.yml, android.yml, backend.yml, release.yml)
 ```
 
-1. **ডাউনলোড (Download to Phone Memory):**
-   - আপনার স্মার্টফোনের ব্রাউজার (Chrome/Firefox/Samsung Internet) দিয়ে রিপোজিটরির **`app-debug.apk`** লিংকে ট্যাপ করুন।
-   - ডাউনলোড নিশ্চিত করতে **"Download anyway"** নির্বাচন করুন। ফাইলটি আপনার ফোনের মেমোরিতে ডাউনলোড ফোল্ডারে সংরক্ষিত হবে।
-
-2. **ফাইল ওপেন (Open Downloaded APK):**
-   - ডাউনলোড সম্পন্ন হলে নোটিফিকেশন বারে থাকা নোটিফিকেশনে ট্যাপ করুন অথবা ফোনের **Files / My Files / Downloads** অ্যাপে গিয়ে **`app-debug.apk`** ফাইলটিতে ট্যাপ করুন।
-
-3. **অজানা উৎস থেকে ইনস্টলের অনুমতি (Allow Unknown Sources):**
-   - অ্যান্ড্রয়েড সিকিউরিটি প্রম্পট আসলে (*"For your security, your phone is not allowed to install unknown apps from this source"*), **Settings**-এ ট্যাপ করুন।
-   - **"Allow from this source"** অপশনটি চালু (ON) করে ব্যাক বাটনে ট্যাপ করুন।
-
-4. **ইনস্টল ও ব্যবহার (Install & Open):**
-   - **Install** বাটনে ট্যাপ করুন।
-   - ইনস্টলেশন শেষ হলে **Open** বাটনে ট্যাপ করে সম্পূর্ণ অফলাইনে ভূমি রেকর্ড ডিজিটাইজেশন শুরু করুন!
-
 ---
 
-## 🤖 এফ-ড্রয়েড অ্যাপ স্টোর সামঞ্জস্য (F-Droid App Store Compatibility)
+## ৩. বিল্ড ও টেস্ট নির্দেশিকা (Build & Verification Commands)
 
-এই অ্যাপ্লিকেশনটি **F-Droid** ওপেন-সোর্স অ্যাপ স্টোরের কঠোর নিয়মাবলীর সাথে শতভাগ সামঞ্জস্যপূর্ণ:
-- **100% Free & Open Source:** সম্পূর্ণ কোডবেস [Apache 2.0 লাইসেন্স](LICENSE)-এর অধীনে উন্মুক্ত।
-- **জিরো ট্র্যাকার ও বিজ্ঞাপন (Zero Trackers/Ads):** কোনো ট্র্যাকিং SDK, বিজ্ঞাপন বা Google Play Services নির্ভরতা নেই।
-- **সম্পূর্ণ অফলাইন (Zero Network Leaks):** কোনো ইন্টারনেট পারমিশন (`INTERNET`) প্রয়োজন নেই।
-- **রেসিপি ও মেটাডাটা:** F-Droid বিল্ড রেসিপি [`metadata/com.aistudio.newazlrecord.kxrtpq.yml`](metadata/com.aistudio.newazlrecord.kxrtpq.yml) এবং Fastlane ডিরেক্টরি প্রস্তুত রয়েছে।
-- **সাবমিশন গাইড:** F-Droid স্টোরে প্রকাশের পূর্ণাঙ্গ নির্দেশিকা দেখুন: [**`FDROID.md`**](FDROID.md)
-
----
-
-## ⚠️ আইনগত সতর্কতা ও নির্দেশিকা (Legal Disclaimer)
-
-> **গুরুত্বপূর্ণ ব্যবহারবিধি:**
-> 1. এই অ্যাপ্লিকেশনে প্রদর্শিত অপটিক্যাল ক্যারেক্টার রিকগনিশন (OCR) ফলাফল প্রযুক্তিগতভাবে আনুমানিক।
-> 2. আহরিত সকল তথ্য অবশ্যই মূল নথির অক্ষরের সাথে মিলিয়ে যাচাই করে নিতে হবে।
-> 3. এই অ্যাপ্লিকেশনটি কোনোভাবেই ভূমির আইনি মালিকানা (Legal Ownership) নির্ধারণ করে না।
-> 4. এটি কোনো আইনি মতামত (Legal Opinion) প্রদান করে না।
-> 5. এটি কোনো উত্তরাধিকার (Inheritance) বা চূড়ান্ত স্বত্ব (Title) প্রমাণ করে না।
-> 6. সকল অনিশ্চিত বা সম্ভাব্য ক্ষেত্রসমূহ 'অযাচাইকৃত' (Unverified/Probable) হিসেবে চিহ্নিত করা থাকে।
-
----
-
-## 🛠 প্রযুক্তি ও আর্কিটেকচার (Technology Stack)
-
-- **Language:** Kotlin 2.0+
-- **UI Framework:** Jetpack Compose with Material Design 3 (M3)
-- **Architecture:** MVVM + Clean Architecture with Coroutines & StateFlow
-- **Local Persistence:** Room Database with full schema entities & foreign keys
-- **Background Tasks:** Android WorkManager (`BatchExtractionWorker`)
-- **Camera Document Capture:** CameraX (Preview, Flash/Torch, ImageCapture, Framing guide)
-- **File System & Trees:** Android Storage Access Framework (SAF) recursive crawling
-- **PDF Page Extraction:** Android `PdfRenderer` with high-resolution page rasterization
-- **OCR Engine:** Offline Bengali (`ben`) & English (`eng`) script analyzer + Tesseract Native pipeline
-- **Image Preprocessing:** Grayscale conversion, contrast stretching, adaptive local thresholding/binarization
-- **Report Export:** Structured JSON audit export, CSV batch export, and Formatted Text summaries
-
----
-
-## 📂 ইনপুট ফোল্ডার ও কাঠামো (Input Directory Structure)
-
-The app accepts a root directory via Android Storage Access Framework (SAF) and recursively crawls nested directories such as:
-
-```text
-LandRecords/
-└── input/
-    ├── CS/                   # ক্যাডাস্ট্রাল সার্ভে খতিয়ান (Cadastral Survey)
-    ├── SA/                   # স্টেট একুইজিশন খতিয়ান (State Acquisition)
-    ├── RS/                   # রিভিশনাল সার্ভে খতিয়ান (Revisional Survey)
-    ├── BRS/                  # বাংলাদেশ জরিপ / সিটি জরিপ (BRS / BS / City Survey)
-    ├── inheritance/          # ওয়ারিশনামা / উত্তরাধিকার সনদ
-    ├── deeds/                # রেজিস্ট্রিকৃত দলিল (সাফ-কবলা, হেবা, দানপত্র)
-    ├── mutation/             # নামজারি, জমাভাগ ও খারিজ খতিয়ান
-    ├── maps/                 # মৌজা নকশা ও সিট
-    ├── tax/                  # ভূমি উন্নয়ন কর পরিশোধ দাখিলা
-    └── tituwhatsapp/         # মিশ্র হোয়াটসঅ্যাপ বা স্ক্যানার ইনপুট (স্বয়ংক্রিয় শ্রেণিবিন্যাস)
-        ├── 403 নং সি এস খতিয়ান.pdf
-        ├── 247 নং বি আর এস খতিয়ান.pdf
-        └── 521 নং আর এস খতিয়ান.pdf
-```
-
-- **Supported Formats:** PDF, JPG, JPEG, PNG, TIFF, WEBP.
-- **Zero-Byte File Detection:** Automatically identifies and logs empty files (`0 bytes`) with prominent warning badges.
-- **Safe Handling:** Never modifies or deletes original source files; copies to app sandbox for evidence preservation.
-
----
-
-## 🔍 প্রমাণ-সংরক্ষণ ও OCR কার্যপদ্ধতি (Evidence Preservation Pipeline)
-
-1. **Pristine Raw Preservation:** Each rendered page or camera shot is saved as a pristine raw image.
-2. **Processed Copy:** An enhanced, contrast-stretched, and binarized copy is generated for OCR.
-3. **Evidence Inspector:** In the document details screen, switch seamlessly between original raw and binarized images with pinch-to-zoom (up to 600%), pan, and 90° rotation.
-4. **Structured Parsing:**
-   - District (জেলা) & Upazila/Thana (উপজেলা / থানা)
-   - Mouza (মৌজা) & JL No (জে. এল. নং) & Touzi No (তৌজি নং)
-   - Khatian No (খতিয়ান নং) & Former/Hal Khatian
-   - Dag No (দাগ নং) & Former Dag (সাবেক দাগ) & Hal Dag (হাল দাগ)
-   - Land Classification (নাল, ভিটি, বাড়ি, পুকুর, ধানী, পতিত, ইত্যাদি)
-   - Area (একর ও শতাংশ)
-   - Owners (মালিক ও রায়তের নাম, পিতা/স্বামী, এবং হিস্যা/অংশ)
-5. **Hissa Validation:** Verifies that owner shares sum to `1.000` (or 16 আনা). Flags mathematical discrepancies automatically.
-
----
-
-## 🏛️ মডিউল ০৩: ওয়ারিশনামা ও মৌজা নকশা মেলানো (Module 03: Warish Matcher & Cadastral Map Highlights)
-
-1. **উত্তরাধিকার সনদ (ওয়ারিশনামা) ও খতিয়ান শৃঙ্খল মেলানো:**
-   - **Cross-Referencing Engine:** ওয়ারিশদের নাম, সম্পর্ক এবং দাগ নম্বরসমূহ ডাটাবেজে সংরক্ষিত CS, SA, RS ও BRS জরিপ রেকর্ডের সাথে স্বয়ংক্রিয়ভাবে মিলিয়ে দেখে।
-   - **৬টি ফরেনসিক প্রমাণ স্তর (Forensic Evidence Tiers):**
-     1. `VERIFIED (যাচাইকৃত)`: মূল নথির সাথে সরাসরি মিলে গেছে এবং জরিপ শৃঙ্খল অক্ষুণ্ন।
-     2. `CORROBORATED (সমর্থিত)`: একাধিক স্বতন্ত্র দলিল বা জরিপের মাধ্যমে সমর্থিত।
-     3. `PROBABLE (সম্ভাব্য)`: নাম, দাগ ও মৌজা অনুসারে জোরালো সম্ভাবনা।
-     4. `POSSIBLE (সম্ভাবনাময়)`: প্রাথমিক মিল বিদ্যমান কিন্তু সংযোগকারী নথি অপূর্ণ।
-     5. `RECORD GAP (রেকর্ড ফাঁক)`: জরিপ শৃঙ্খলে মধ্যবর্তী খতিয়ান (যেমন: এসএ বা আরএস) অনুপস্থিত।
-     6. `CONTRADICTORY (পরস্পরবিরোধী)`: অতিরিক্ত হিস্যা (> ১.০০০), নাম অমিল বা সাংঘর্ষিক দাবি।
-   - **হিস্যা সমতা যাচাই:** ১৬ আনা বা ১.০০০ গাণিতিক যোগফল নিখুঁতভাবে পরীক্ষা করে এবং গরমিল থাকলে সতর্কতা জারি করে।
-   - **দাগভিত্তিক জমি বণ্টন:** ওয়ারিশদের দশমিক হিস্যা অনুযায়ী প্রতিটি দাগের শতাংশ হিসেবে জমি বরাদ্দ গণনা করে।
-
-2. **মৌজা নকশা ইন্টেলিজেন্স ও লক্ষ্য দাগ হাইলাইট (Cadastral Map Highlights):**
-   - **ফরেনসিক কড়া বিধি (Crucial Rule):** কখনো সব দাগ হাইলাইট করা হয় না। শুধুমাত্র ওয়ারিশনামায় শনাক্তকৃত লক্ষ্য দাগসমূহ (`target Dags`) উজ্জ্বল এমারেল্ড/অ্যাম্বার বর্ডার ও ফিলের মাধ্যমে হাইলাইট করা হয়, বাকি দাগসমূহ মূল জরিপ নকশার আদলে অক্ষত থাকে।
-   - **ইন্টারেক্টিভ ক্যানভাস ম্যাপ:** পিঞ্চ-টু-জুম (৮০% থেকে ৪০০%), প্যান, উত্তর দিক নির্দেশক (North Arrow), এবং ক্যাডাস্ট্রাল স্কেল (১৬ ইঞ্চি = ১ মাইল)।
-   - **দাগ বিশ্লেষণ প্যানেল:** নকশার যেকোনো দাগের উপর ট্যাপ করলে দাগ নং, জমির শ্রেণি, আয়তন (শতাংশ) এবং ওয়ারিশদের প্রাপ্য হিস্যা দৃশ্যমান হয়।
-   - **ফরেনসিক অডিট রিপোর্ট:** এক ক্লিকে সম্পূর্ণ অডিট সার্টিফিকেট তৈরি ও শেয়ার করার সুবিধা।
-
----
-
-## 📥 Tesseract বাংলা মডেল সেটআপ ও ডাউনলোড (Tesseract Bengali & English Setup)
-
-The application provides an automated in-app download pipeline and manual loading options for Tesseract traineddata:
-
-1. **One-Tap Automated In-App Download:**
-   - Tap the **OCR Models** icon on the top bar of the Home screen.
-   - Tap **"বাংলা ও ইংরেজি মডেল ডাউনলোড করুন (ben + eng)"** to automatically download official models from GitHub directly into the app's local storage directory (`context.filesDir/tessdata/`).
-   - Real-time download progress and size verification are displayed.
-
-2. **Manual Download & Import via SAF:**
-   - Download `ben.traineddata` and `eng.traineddata` from:
-     - [Tesseract OCR Tessdata Fast](https://github.com/tesseract-ocr/tessdata_fast)
-   - In the app, tap the **OCR Models** icon and select **"স্থানীয় ফাইল" (Import File)** to choose from your device storage.
-
-3. **Direct ADB / Termux Transfer:**
-   ```bash
-   adb push ben.traineddata /data/data/com.aistudio.landrecord.nxwqpm/files/tessdata/
-   adb push eng.traineddata /data/data/com.aistudio.landrecord.nxwqpm/files/tessdata/
-   ```
-
-4. **Offline Fallback Guarantee:**
-   - If traineddata is not yet downloaded, the built-in offline Bengali & English script analyzer automatically processes land records without crashing or requiring internet access.
-
----
-
-## 🏛️ মডিউল ০৪ - ১৫: উন্নত ইন্টেলিজেন্স ও প্রোডাকশন ফিচারসমূহ (Modules 04 - 15)
-
-1. **মডিউল ০৪: বাংলা হস্তলিপি ও মার্জিনাল নোট (HCR)**
-   - ঐতিহাসিক বাংলা পেঁচানো হস্তলিপি (Cursive Bengali), কেরানির কাটাকাটি, অফিসিয়াল সিলমোহর ও রাজস্ব স্ট্যাম্পের পাঠোদ্ধার।
-   - টোকেন-লেভেল নির্ভরযোগ্যতা স্কোর (Confidence score) ও অনির্ভরযোগ্য তথ্যের জন্য `[Unclear: ...]` ফ্ল্যাগিং।
-   - ম্যানুয়াল সংশোধন ইন্টারফেস এবং অডিট হিস্ট্রি সংরক্ষণ (Zero-Data-Loss)।
-
-2. **মডিউল ০৫: মৌজা ও ক্যাডাস্ট্রাল নকশা ইন্টেলিজেন্স (GIS)**
-   - CS, SA, RS ও BS নকশার দাগ সীমানা (Polygon parcels), দাগ নম্বর, সংযোগকারী রাস্তা ও নদী/খাল স্বয়ংক্রিয় শনাক্তকরণ।
-   - **কঠোর ফরেনসিক নিয়ম:** কখনো সব দাগ হাইলাইট করা হয় না। কেবল ওয়ারিশনামা বা খতিয়ানের মিলকৃত দাগসমূহ গাঢ় সবুজ রঙে হাইলাইট করা হয়।
-   - GeoJSON ও জিআইএস স্তর প্রস্তুতকরণ।
-
-3. **মডিউল ০৬: ওয়ারিশনামা ও ফারায়েজ ম্যাচার (Inheritance Matcher)**
-   - মৃত ব্যক্তির ওয়ারিশদের হিস্যা যোগফল (১৬ আনা বা ১.০০০) সমতা পরীক্ষা।
-   - ৬টি আইনি প্রমাণ স্তর: `VERIFIED`, `CORROBORATED`, `PROBABLE`, `POSSIBLE`, `RECORD GAP`, `CONTRADICTORY`।
-
-4. **মডিউল ০৭: ফরেনসিক ডাটাবেজ (Room v3 & PostGIS)**
-   - ১০টি নরমালাইজড টেবিল: Documents, OCR, HCR, Maps, Plots, Owners, Evidence, Jobs, SearchIndex।
-   - সম্পূর্ণ অফলাইন SQLite এবং প্রোডাকশন PostgreSQL + PostGIS কম্প্যাটিবল স্কিমা।
-
-5. **মডিউল ০৮: পেশাদার বাল্ক আপলোড কিউ (Bulk Upload)**
-   - ড্র্যাগ অ্যান্ড ড্রপ, ফোল্ডার রিকার্শন, কিউ মনিটরিং, ডুপ্লিকেট ওয়ার্নিং ব্যাজ এবং পজ/রিজিউম সমর্থন।
-
-6. **মডিউল ০৯: মাল্টি-ফরম্যাট এক্সপোর্ট সিস্টেম**
-   - Excel (.xlsx), CSV, PDF (প্রিন্টযোগ্য HTML ডসিয়ার), JSON এবং ফরেনসিক ZIP বান্ডিল তৈরি।
-
-7. **মডিউল ১০ & ১২: শতভাগ অফলাইন সাপোর্ট (Offline First)**
-   - ইন্টারনেট সংযোগ ছাড়াই স্থানীয় ডিভাইসে পূর্ণাঙ্গ ডাটাবেজ, অফলাইন OCR/HCR ও সার্চ ইঞ্জিন পরিচালনা।
-
-8. **মডিউল ১১: GitHub Actions CI/CD**
-   - Android APK টেস্ট ও বিল্ড পাইপলাইন, FastAPI পাইথন টেস্ট এবং রিলিজ পাবলিশার।
-
-9. **মডিউল ১৩: ঐতিহাসিক প্রপার্টি অ্যাটলাস (Historical Atlas)**
-   - CS (১৮৮৮) ➔ SA (১৯৫৬) ➔ RS (১৯৬৫) ➔ BS (১৯৯৮) ৪ যুগের ধারাবাহিক শৃঙ্খল ও দাগ বিভাজন (Dag Split) ও একত্রীকরণ (Dag Merge) ট্র্যাক।
-
-10. **মডিউল ১৪: কৃত্রিম বুদ্ধিমত্তা চালিত ফরেনসিক ভ্যালিডেশন**
-    - নামের ভিন্নতা (মোঃ vs মুহম্মদ), পিতার নামের গরমিল, জমির পরিমাপের রূপান্তর (একর, শতাংশ, কাঠা, বিঘা) ও শৃঙ্খল বিচ্ছিন্নতা শনাক্তকরণ।
-
----
-
-## ⚡ FastAPI ব্যাকএন্ড পরিচালনা (Backend Execution)
-
+### Android App & Robolectric Test Suite
 ```bash
-# ১. ডিপেনডেন্সি ইনস্টল
-pip install -r backend/requirements.txt
+# Run all Android Unit & Robolectric tests
+gradle :app:testDebugUnitTest
 
-# ২. সার্ভার চালু
-uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
-
-# ৩. এপিআই ডকুমেন্টেশন ব্রাউজ
-# http://localhost:8000/docs
-```
-
----
-
-## 🚀 গিট রিপোজিটরি তৈরি ও পুশ করার নির্দেশিকা (Git Setup Instructions)
-
-To publish this project to GitHub at **`tapos-py/newaz-lrecord-extractor`**:
-
-```bash
-# 1. Initialize git if not already initialized
-git init
-
-# 2. Add all project files
-git add .
-
-# 3. Create initial commit
-git commit -m "feat: initial release of Newaz Land Record Extractor with Bengali/English OCR and evidence preservation"
-
-# 4. Set default branch to main
-git branch -M main
-
-# 5. Add remote GitHub repository
-git remote add origin https://github.com/tapos-py/newaz-lrecord-extractor.git
-
-# 6. Push to GitHub (ensure you are authenticated via SSH or Personal Access Token)
-git push -u origin main
-```
-
----
-
-## 🎬 অফিসিয়াল টিউটোরিয়াল ও ভিডিও প্যাকেজ (Official Video Tutorial Package)
-
-A complete, production-ready cinematic user tutorial package has been auto-generated in `/tutorial` (and mirrored in `/public/tutorial` for direct browser access):
-
-| Deliverable | Format | Details |
-|---|---|---|
-| **Video Storyboard** | [`Storyboard.pdf`](tutorial/Storyboard.pdf) / [`Storyboard.md`](tutorial/Storyboard.md) | 14-scene cinematic storyboard (11m 30s) detailing camera movements, actions, and lower-third text |
-| **English Voiceover** | [`VoiceOver_EN.docx`](tutorial/VoiceOver_EN.docx) / [`VoiceOver_EN.md`](tutorial/VoiceOver_EN.md) | Studio-ready professional English narration script with pronunciation guide |
-| **Bangla Voiceover** | [`VoiceOver_BN.docx`](tutorial/VoiceOver_BN.docx) / [`VoiceOver_BN.md`](tutorial/VoiceOver_BN.md) | প্রমিত বাংলা ভয়েস-ওভার ও আইনি পরিভাষা উচ্চারণ নির্দেশিকা |
-| **Master Tutorial Script** | [`Tutorial_Script.pdf`](tutorial/Tutorial_Script.pdf) / [`Tutorial_Script.md`](tutorial/Tutorial_Script.md) | Director's cut with before/after AI demonstrations, split-screen VFX, and animated callouts |
-| **Screen Recording Checklist** | [`Recording_Checklist.pdf`](tutorial/Recording_Checklist.pdf) / [`Recording_Checklist.md`](tutorial/Recording_Checklist.md) | UI interaction checklist with exact Compose testTags, clicks, and inputs |
-| **Subtitles** | [`English.srt`](tutorial/English.srt) & [`Bangla.srt`](tutorial/Bangla.srt) | 100% synchronized SubRip caption files matching spoken narration |
-| **YouTube Thumbnail** | [`Thumbnail.png`](tutorial/Thumbnail.png) | 1920x1080 cinematic thumbnail with phone mockup, highlighted Cadastral map plot 402, and badges |
-| **AI Video Prompts** | [`Veo3_MasterPrompt.txt`](tutorial/Veo3_MasterPrompt.txt) & [`GeminiVideo_MasterPrompt.txt`](tutorial/GeminiVideo_MasterPrompt.txt) | Prompts for Google Veo 3 and Gemini Video 4K 60FPS generation |
-| **Audio & SFX Guides** | [`Music_Guide.pdf`](tutorial/Music_Guide.pdf) & [`Sound_Effects_Guide.pdf`](tutorial/Sound_Effects_Guide.pdf) | Soundtrack direction with audio ducking (-14dB) and subtle Foley sound cues |
-| **Export Instructions** | [`Export_Guide.pdf`](tutorial/Export_Guide.pdf) & [`Export_Guide.md`](tutorial/Export_Guide.md) | Multi-format rendering specs for YouTube 4K (16:9), TikTok/Shorts (9:16), and LinkedIn (1:1) |
-
----
-
-## 📱 বিল্ড ও রান (Build & Execution)
-
-- **Minimum SDK:** Android 7.0 (API 24)
-- **Target / Compile SDK:** Android 15 / 16 Preview (API 36)
-- **Build Tool:** Gradle with Kotlin DSL
-
-To build debug APK:
-```bash
+# Assemble Debug APK
 gradle :app:assembleDebug
 ```
 
-To run unit tests:
+### Python AI & FastAPI Backend Test Suite
 ```bash
-gradle :app:testDebugUnitTest
+# Run with Python standard library unittest (zero external dependencies required)
+PYTHONPATH=. python3 -m unittest discover -s backend/tests -v
+
+# Or run with pytest in a full virtualenv
+pip install -r backend/requirements.txt pytest httpx
+PYTHONPATH=. pytest backend/tests -v
 ```
+
+---
+
+## ৪. নিরাপত্তা ও গোপনীয়তা (Security & Privacy)
+- **Permissions**: Uses `CAMERA` (optional hardware feature for live document scanning) and `INTERNET` / `ACCESS_NETWORK_STATE` (for optional Tesseract traineddata download, Google Drive injection, and Gemini AI analysis). Never requests `READ_EXTERNAL_STORAGE`, `WRITE_EXTERNAL_STORAGE`, or `MANAGE_EXTERNAL_STORAGE`.
+- **Backend Hardening**: Enforces explicit `ALLOWED_ORIGINS` CORS configuration, `FORENSIC_API_KEY` header/Bearer authentication when configured, `MAX_REQUEST_BODY_BYTES` size limits, ZipSlip path-traversal blocking, and SQLite persistence.

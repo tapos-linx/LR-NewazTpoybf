@@ -215,4 +215,55 @@ class ReportExportManagerTest {
             testFile.delete()
         }
     }
+
+    @Test
+    fun testPdfExportIntegrityAndBengaliUnicode() {
+        val pdfBytes = ReportExportManager.buildFormattedPdfBytes(sampleDoc, samplePages, sampleData)
+        assertTrue("PDF must exceed minimum byte threshold", pdfBytes.size > 200)
+        assertTrue("PDF must pass header and EOF integrity check", ReportExportManager.validatePdfIntegrity(pdfBytes))
+
+        val pdfText = String(pdfBytes, Charsets.UTF_8)
+        assertTrue("PDF must start with %PDF-1.", pdfText.startsWith("%PDF-1."))
+        assertTrue("PDF must contain %%EOF trailer", pdfText.contains("%%EOF"))
+        // Verify Bengali Unicode text is preserved inside the PDF stream
+        assertTrue("PDF must preserve Bengali Khatian number ৪০৩", pdfText.contains("৪০৩"))
+        assertTrue("PDF must preserve Bengali Owner name", pdfText.contains("মোহাম্মদ আবদুর রহমান"))
+        // Verify UTF-16BE BOM hex string (<FEFF...>) is included for forensic Unicode extraction
+        assertTrue("PDF must contain UTF-16BE hex string <FEFF", pdfText.contains("<FEFF"))
+    }
+
+    @Test
+    fun testMassExportZipIncludesValidatedPdfsAndReportsMissingFiles() = runBlocking {
+        val zipBytes = ReportExportManager.buildFullMassExportZipBytes(
+            context = context,
+            documents = listOf(sampleDoc),
+            records = listOf(Pair(sampleDoc, sampleData))
+        )
+        assertTrue(zipBytes.isNotEmpty())
+
+        val entries = mutableMapOf<String, ByteArray>()
+        java.util.zip.ZipInputStream(java.io.ByteArrayInputStream(zipBytes)).use { zis ->
+            var entry = zis.nextEntry
+            while (entry != null) {
+                entries[entry.name] = zis.readBytes()
+                zis.closeEntry()
+                entry = zis.nextEntry
+            }
+        }
+
+        assertTrue("ZIP must contain master PDF dossier", entries.containsKey("land_records_dossier.pdf"))
+        assertTrue(
+            "Master PDF dossier inside ZIP must be valid",
+            ReportExportManager.validatePdfIntegrity(entries["land_records_dossier.pdf"]!!)
+        )
+        // Because sampleDoc has no local filesDir/records/doc-12345 directory, MISSING_SOURCE_FILES_REPORT.txt must be generated
+        assertTrue(
+            "ZIP must explicitly report missing source files instead of failing silently",
+            entries.containsKey("MISSING_SOURCE_FILES_REPORT.txt")
+        )
+        val missingReport = String(entries["MISSING_SOURCE_FILES_REPORT.txt"]!!, Charsets.UTF_8)
+        assertTrue(missingReport.contains("doc-12345"))
+    }
 }
+
+

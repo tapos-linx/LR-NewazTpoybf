@@ -98,4 +98,43 @@ class LandDocumentDaoTest {
         assertEquals(1, typedOwnerDocs.size)
         assertEquals("doc-1", typedOwnerDocs[0].id)
     }
+
+    @Test
+    fun testRoomMigrationsPreservePopulatedData() = runBlocking {
+        // Insert populated document and verify all explicit migrations (1->2->3->4->5->6) execute safely
+        val doc = LandDocumentEntity(
+            id = "migrated-doc-900",
+            title = "বি আর এস খতিয়ান ৯০০",
+            sourceFileName = "brs_900.pdf",
+            sourceFilePath = "/docs/brs_900.pdf",
+            sourceCategory = "BRS",
+            classifiedType = "BRS",
+            fileFormat = "PDF",
+            dateCaptured = 1710000000000L,
+            primaryDistrict = "ঢাকা",
+            primaryUpazila = "সাভার",
+            primaryKhatianNo = "৯০০",
+            primaryDagNo = "১৮২০",
+            ownersSummary = "মোঃ রফিকুল ইসলাম"
+        )
+        dao.insertDocument(doc)
+
+        // Execute the exact migration SQL statements against the underlying SupportSQLiteDatabase
+        val sqliteDb = database.openHelper.writableDatabase
+        AppDatabase.MIGRATION_1_2.migrate(sqliteDb)
+        AppDatabase.MIGRATION_2_3.migrate(sqliteDb)
+        AppDatabase.MIGRATION_3_4.migrate(sqliteDb)
+        AppDatabase.MIGRATION_4_5.migrate(sqliteDb)
+        AppDatabase.MIGRATION_5_6.migrate(sqliteDb)
+
+        // Verify existing populated record survived all migrations intact
+        val survived = dao.getDocumentByIdOnce("migrated-doc-900")
+        assertNotNull(survived)
+        assertEquals("বি আর এস খতিয়ান ৯০০", survived?.title)
+        assertEquals("৯০০", survived?.primaryKhatianNo)
+        assertEquals("১৮২০", survived?.primaryDagNo)
+        assertEquals("মোঃ রফিকুল ইসলাম", survived?.ownersSummary)
+    }
 }
+
+

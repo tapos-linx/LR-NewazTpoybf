@@ -470,12 +470,13 @@ object ReportExportManager {
             val summaryTxt = buildBatchTextSummaryContent(records)
             putSafeEntry(zos, "land_records_summary.txt", summaryTxt.toByteArray(Charsets.UTF_8))
 
-            try {
-                val batchPdfBytes = buildBatchFormattedPdfBytes(records)
-                putSafeEntry(zos, "land_records_dossier.pdf", batchPdfBytes)
-            } catch (_: Exception) {
+            val batchPdfBytes = buildBatchFormattedPdfBytes(records)
+            if (!validatePdfIntegrity(batchPdfBytes)) {
+                throw IOException("Failed PDF integrity check for master batch PDF dossier (land_records_dossier.pdf)")
             }
+            putSafeEntry(zos, "land_records_dossier.pdf", batchPdfBytes)
 
+            val missingOrFailedEntries = mutableListOf<String>()
             val buffer = ByteArray(8192)
             for ((doc, data) in records) {
                 val safeTitle = doc.title.replace(Regex("[^a-zA-Z0-9._\\-\\u0980-\\u09FF]"), "_").take(40)
@@ -487,11 +488,11 @@ object ReportExportManager {
                 val singleHtml = buildHtmlDossierContent(doc, data)
                 putSafeEntry(zos, "$folderPrefix/dossier_${safeTitle}.html", singleHtml.toByteArray(Charsets.UTF_8))
 
-                try {
-                    val singlePdfBytes = buildFormattedPdfBytes(doc, emptyList(), data)
-                    putSafeEntry(zos, "$folderPrefix/dossier_${safeTitle}.pdf", singlePdfBytes)
-                } catch (_: Exception) {
+                val singlePdfBytes = buildFormattedPdfBytes(doc, emptyList(), data)
+                if (!validatePdfIntegrity(singlePdfBytes)) {
+                    throw IOException("Failed PDF integrity check for document ${doc.id} ($folderPrefix/dossier_${safeTitle}.pdf)")
                 }
+                putSafeEntry(zos, "$folderPrefix/dossier_${safeTitle}.pdf", singlePdfBytes)
 
                 val recordDir = File(context.filesDir, "records/${doc.id}")
                 if (recordDir.exists() && recordDir.isDirectory) {
@@ -509,7 +510,14 @@ object ReportExportManager {
                             zos.closeEntry()
                         }
                     }
+                } else {
+                    missingOrFailedEntries.add("Missing local image directory for documentId=${doc.id} (${doc.sourceFileName})")
                 }
+            }
+
+            if (missingOrFailedEntries.isNotEmpty()) {
+                val diagnosticReport = missingOrFailedEntries.joinToString("\n")
+                putSafeEntry(zos, "MISSING_SOURCE_FILES_REPORT.txt", diagnosticReport.toByteArray(Charsets.UTF_8))
             }
         }
         baos.toByteArray()
@@ -1013,34 +1021,80 @@ object ReportExportManager {
     }
 
     /**
-     * Pure-Kotlin PDF 1.4 generator used as a resilient fallback when native Skia PdfDocument
-     * is unavailable (e.g., headless JVM / Robolectric environments).
+     * Validates structural integrity of generated PDF bytes:
+     * - Non-empty and starts with `%PDF-1.` header
+     * - Contains `/Type /Catalog`, `/Type /Page`, `xref`, and `%%EOF` trailer
      */
-    private fun buildPortablePdf14FromText(textContent: String): ByteArray {
-        val sanitizedLines = textContent.lines().take(55).map { line ->
+    fun validatePdfIntegrity(pdfBytes: ByteArray): Boolean {
+        if (pdfBytes.size < 64) return false
+        val header = String(pdfBytes, 0, minOf(16, pdfBytes.size), Charsets.ISO_8859_1)
+        if (!header.startsWith("%PDF-1.")) return false
+        val tailStart = maxOf(0, pdfBytes.size - 512)
+        val tail = String(pdfBytes, tailStart, pdfBytes.size - tailStart, Charsets.ISO_8859_1)
+        return tail.contains("%%EOF")
+    }
+
+    /**
+     * Pure-Kotlin PDF 1.4 generator used as a deterministic fallback when native Skia PdfDocument
+     * is unavailable (e.g., headless JVM / Robolectric environments).
+     * Preserves Bengali Unicode strings in both UTF-8 text operators and UTF-16BE BOM hex strings
+     * (`<FEFF...>`) and computes exact byte offsets for the `xref` table.
+     */
+    fun buildPortablePdf14FromText(textContent: String): ByteArray {
+        val sanitizedLines = textContent.lines().take(65).map { line ->
             line.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
         }
+
+        fun toUtf16BeHex(input: String): String {
+            val utf16Bytes = input.toByteArray(Charsets.UTF_16BE)
+            val sb = StringBuilder("FEFF")
+            for (b in utf16Bytes) {
+                sb.append(String.format(Locale.US, "%02X", b))
+            }
+            return sb.toString()
+        }
+
         val streamBuilder = StringBuilder()
         streamBuilder.append("BT\n/F1 10 Tf\n36 800 Td\n14 TL\n")
         for (line in sanitizedLines) {
             streamBuilder.append("(").append(line).append(") Tj T*\n")
+            if (line.any { it.code > 127 }) {
+                streamBuilder.append("<").append(toUtf16BeHex(line)).append("> Tj T*\n")
+            }
         }
         streamBuilder.append("ET\n")
-        val streamContent = streamBuilder.toString()
-        val streamBytes = streamContent.toByteArray(Charsets.UTF_8)
+        val streamBytes = streamBuilder.toString().toByteArray(Charsets.UTF_8)
 
-        val pdf = StringBuilder()
-        pdf.append("%PDF-1.4\n")
-        pdf.append("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
-        pdf.append("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
-        pdf.append("3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n")
-        pdf.append("4 0 obj\n<< /Length ${streamBytes.size} >>\nstream\n")
-        pdf.append(streamContent)
-        pdf.append("endstream\nendobj\n")
-        pdf.append("5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n")
-        pdf.append("xref\n0 6\n0000000000 65535 f \n")
-        pdf.append("trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n0\n%%EOF\n")
-        return pdf.toString().toByteArray(Charsets.UTF_8)
+        val out = ByteArrayOutputStream()
+        fun writeAscii(s: String) = out.write(s.toByteArray(Charsets.ISO_8859_1))
+
+        writeAscii("%PDF-1.4\n%\u00E2\u00E3\u00CF\u00D3\n")
+        val offsets = IntArray(6)
+
+        offsets[1] = out.size()
+        writeAscii("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n")
+
+        offsets[2] = out.size()
+        writeAscii("2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n")
+
+        offsets[3] = out.size()
+        writeAscii("3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>\nendobj\n")
+
+        offsets[4] = out.size()
+        writeAscii("4 0 obj\n<< /Length ${streamBytes.size} >>\nstream\n")
+        out.write(streamBytes)
+        writeAscii("\nendstream\nendobj\n")
+
+        offsets[5] = out.size()
+        writeAscii("5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>\nendobj\n")
+
+        val xrefOffset = out.size()
+        writeAscii("xref\n0 6\n0000000000 65535 f \n")
+        for (i in 1..5) {
+            writeAscii(String.format(Locale.US, "%010d 00000 n \n", offsets[i]))
+        }
+        writeAscii("trailer\n<< /Size 6 /Root 1 0 R >>\nstartxref\n$xrefOffset\n%%EOF\n")
+        return out.toByteArray()
     }
 
     suspend fun generatePdfReport(

@@ -1,167 +1,281 @@
 """
-FastAPI Bulk Upload Module for LR-NewazTpoybf.
-Handles recursive file streaming, ZIP archive decompression, SHA-256 hash deduplication,
-and queuing for Zero-Data-Loss Bangla OCR/HCR extraction.
+Bulk Ingestion & Folder/ZIP Upload Router.
+Supports PDF, JPG, JPEG, PNG, TIFF, TIF, WEBP, DOCX, XLSX, and ZIP archives.
+Enforces:
+- Zero-byte file detection and rejection
+- SHA-256 content deduplication persisted in SQLite
+- ZIP path traversal protection (ZipSlip defense)
+- ZIP bomb protection (max entry count, max uncompressed size, max compression ratio)
+- Corrupt archive & unsupported format reporting
 """
 
-from fastapi import APIRouter, UploadFile, File, Form, HTTPException, BackgroundTasks
-from typing import List, Dict, Any, Optional
+from __future__ import annotations
+
 import hashlib
-import zipfile
 import io
 import os
+import posixpath
+import uuid
+import zipfile
+from typing import Any, Dict, List
+from backend.compat import APIRouter, File, UploadFile
 
-router = APIRouter(prefix="/api/v1/upload", tags=["Bulk Upload"])
+from backend.db.models import archive_store
+
+router = APIRouter()
 
 SUPPORTED_EXTENSIONS = {
-    "pdf", "jpg", "jpeg", "png", "tiff", "tif", "docx", "xlsx", "zip", "bmp", "webp"
+    ".pdf", ".jpg", ".jpeg", ".png", ".tiff", ".tif", ".webp", ".docx", ".xlsx", ".zip"
 }
 
-# In-memory session tracking for demonstration / state
-_seen_hashes: Dict[str, Dict[str, Any]] = {}
-_upload_queue: List[Dict[str, Any]] = []
+MAX_SINGLE_FILE_BYTES = 50 * 1024 * 1024       # 50 MB per single uploaded file
+MAX_ZIP_ENTRIES = 500                          # Max files inside a single ZIP archive
+MAX_ZIP_UNCOMPRESSED_BYTES = 200 * 1024 * 1024 # 200 MB total decompressed cap
+MAX_ZIP_COMPRESSION_RATIO = 100.0              # Zip bomb ratio threshold
+
 
 def compute_sha256(data: bytes) -> str:
     return hashlib.sha256(data).hexdigest()
 
-def classify_survey_type(filename: str) -> str:
-    upper = filename.upper()
-    if any(k in upper for k in ["CS", "সি এস", "সি.এস", "CADASTRAL"]):
-        return "CS"
-    if any(k in upper for k in ["SA", "এস এ", "এস.এ"]):
-        return "SA"
-    if any(k in upper for k in ["RS", "আর এস", "আর.এস"]):
-        return "RS"
-    if any(k in upper for k in ["BRS", "BS", "বি আর এস", "সিটি জরিপ"]):
-        return "BRS_BS"
-    if any(k in upper for k in ["MUTATION", "নামজারি", "খারিজ"]):
-        return "MUTATION"
-    if any(k in upper for k in ["DEED", "DALIL", "দলিল", "কবলা"]):
-        return "DEEDS"
-    if any(k in upper for k in ["TAX", "দাখিলা", "খাজনা"]):
-        return "TAX"
-    if any(k in upper for k in ["WARISH", "ওয়ারিশ", "INHERITANCE"]):
-        return "WARISH"
-    if any(k in upper for k in ["MAP", "ম্যাপ", "নকশা"]):
-        return "MAPS"
-    return "OTHER"
 
-@router.post("/batch")
-async def bulk_upload_files(
-    background_tasks: BackgroundTasks,
-    files: List[UploadFile] = File(...),
-    folder_name: Optional[str] = Form("bulk_upload")
-):
+def is_safe_zip_member_path(member_name: str) -> bool:
     """
-    Accepts unlimited batch uploads (PDF, Images, ZIP, DOCX, XLSX).
-    Performs forensic hash check:
-    - Same hash + same metadata = flagged as DUPLICATE.
-    - Otherwise preserved with source references.
+    Prevents ZipSlip / directory traversal attacks (e.g., '../../etc/passwd' or '/abs/path').
     """
-    total_received = len(files)
-    processed_files = []
-    duplicate_count = 0
-    zero_byte_count = 0
+    if not member_name or member_name.startswith("/") or member_name.startswith("\\"):
+        return False
+    normalized = posixpath.normpath(member_name.replace("\\", "/"))
+    if normalized.startswith("..") or "/../" in f"/{normalized}/":
+        return False
+    if ":" in normalized.split("/")[0]:  # Windows drive letter injection
+        return False
+    return True
 
-    for file in files:
-        contents = await file.read()
-        size_bytes = len(contents)
-        filename = file.filename or "unknown_file"
-        ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
 
-        if ext not in SUPPORTED_EXTENSIONS and ext != "":
+def classify_document_by_filename(filename: str) -> str:
+    lower = filename.lower()
+    if "cs" in lower or "সিএস" in lower or "সি এস" in lower:
+        return "CS_KHATIAN"
+    if "sa" in lower or "এসএ" in lower or "এস এ" in lower:
+        return "SA_KHATIAN"
+    if "rs" in lower or "আরএস" in lower or "আর এস" in lower:
+        return "RS_KHATIAN"
+    if "bs" in lower or "brs" in lower or "বিএস" in lower or "বিআরএস" in lower:
+        return "BS_KHATIAN"
+    if "deed" in lower or "dalil" in lower or "দলিল" in lower or "কবলা" in lower:
+        return "DEED_DALIL"
+    if "mutation" in lower or "namjari" in lower or "নামজারি" in lower or "খারিজ" in lower:
+        return "MUTATION_NAMJARI"
+    if "map" in lower or "mouza" in lower or "নকশা" in lower:
+        return "MOUZA_MAP"
+    if "warish" in lower or "ওয়ারিশ" in lower or "ওয়ারিশ" in lower:
+        return "WARISH_CERTIFICATE"
+    return "UNCLASSIFIED_RECORD"
+
+
+@router.post("/ingest", summary="Bulk upload land record files or ZIP archives")
+async def bulk_ingest_documents(files: List[UploadFile] = File(...)) -> Dict[str, Any]:
+    batch_id = str(uuid.uuid4())
+    accepted: List[Dict[str, Any]] = []
+    skipped_zero_byte: List[Dict[str, Any]] = []
+    skipped_duplicates: List[Dict[str, Any]] = []
+    rejected_unsupported: List[Dict[str, Any]] = []
+    corrupt_or_security_rejected: List[Dict[str, Any]] = []
+
+    def process_single_payload(fname: str, raw_bytes: bytes) -> None:
+        ext = os.path.splitext(fname)[1].lower()
+        doc_type = classify_document_by_filename(fname)
+
+        if len(raw_bytes) == 0:
+            entry = archive_store.record_upload_item(
+                batch_id=batch_id,
+                filename=fname,
+                extension=ext,
+                size_bytes=0,
+                sha256=None,
+                document_type=doc_type,
+                status="ZERO_BYTE_SKIPPED",
+                reason="ZERO_BYTE_EMPTY_FILE",
+            )
+            skipped_zero_byte.append(entry)
+            return
+
+        if len(raw_bytes) > MAX_SINGLE_FILE_BYTES:
+            entry = archive_store.record_upload_item(
+                batch_id=batch_id,
+                filename=fname,
+                extension=ext,
+                size_bytes=len(raw_bytes),
+                sha256=None,
+                document_type=doc_type,
+                status="REJECTED_OVERSIZE",
+                reason=f"File exceeds {MAX_SINGLE_FILE_BYTES} bytes limit",
+            )
+            corrupt_or_security_rejected.append(entry)
+            return
+
+        if ext not in SUPPORTED_EXTENSIONS:
+            entry = archive_store.record_upload_item(
+                batch_id=batch_id,
+                filename=fname,
+                extension=ext,
+                size_bytes=len(raw_bytes),
+                sha256=None,
+                document_type=doc_type,
+                status="UNSUPPORTED_FORMAT",
+                reason=f"Unsupported extension: {ext}",
+            )
+            rejected_unsupported.append(entry)
+            return
+
+        file_hash = compute_sha256(raw_bytes)
+        existing = archive_store.has_seen_sha256(file_hash)
+        if existing is not None:
+            entry = archive_store.record_upload_item(
+                batch_id=batch_id,
+                filename=fname,
+                extension=ext,
+                size_bytes=len(raw_bytes),
+                sha256=file_hash,
+                document_type=doc_type,
+                status="DUPLICATE_SKIPPED",
+                reason=f"Duplicate of {existing}",
+            )
+            skipped_duplicates.append(entry)
+            return
+
+        entry = archive_store.record_upload_item(
+            batch_id=batch_id,
+            filename=fname,
+            extension=ext,
+            size_bytes=len(raw_bytes),
+            sha256=file_hash,
+            document_type=doc_type,
+            status="QUEUED",
+            reason=None,
+        )
+        accepted.append(entry)
+
+    for upload in files:
+        filename = upload.filename or "unnamed"
+        ext = os.path.splitext(filename)[1].lower()
+        content = await upload.read()
+
+        if len(content) == 0:
+            process_single_payload(filename, content)
             continue
 
-        # Zero-byte detection
-        if size_bytes == 0:
-            zero_byte_count += 1
-            processed_files.append({
-                "filename": filename,
-                "folder": folder_name,
-                "size_bytes": 0,
-                "status": "ZERO_BYTE_ERROR",
-                "sha256": None,
-                "is_duplicate": False,
-                "survey_type": classify_survey_type(filename)
-            })
-            continue
-
-        # Handle ZIP extraction recursively
-        if ext == "zip":
+        if ext == ".zip":
             try:
-                with zipfile.ZipFile(io.BytesIO(contents)) as zf:
-                    for zip_info in zf.infolist():
-                        if zip_info.is_dir():
+                with zipfile.ZipFile(io.BytesIO(content)) as zf:
+                    infos = [info for info in zf.infolist() if not info.is_dir()]
+                    if len(infos) > MAX_ZIP_ENTRIES:
+                        entry = archive_store.record_upload_item(
+                            batch_id=batch_id,
+                            filename=filename,
+                            extension=ext,
+                            size_bytes=len(content),
+                            sha256=None,
+                            document_type="ZIP_ARCHIVE",
+                            status="SECURITY_REJECTED",
+                            reason=f"ZIP entry count ({len(infos)}) exceeds limit ({MAX_ZIP_ENTRIES})",
+                        )
+                        corrupt_or_security_rejected.append(entry)
+                        continue
+
+                    total_uncompressed = 0
+                    for info in infos:
+                        if not is_safe_zip_member_path(info.filename):
+                            entry = archive_store.record_upload_item(
+                                batch_id=batch_id,
+                                filename=f"{filename}/{info.filename}",
+                                extension=os.path.splitext(info.filename)[1].lower(),
+                                size_bytes=info.file_size,
+                                sha256=None,
+                                document_type="ZIP_MEMBER",
+                                status="SECURITY_REJECTED",
+                                reason="PATH_TRAVERSAL_DETECTED",
+                            )
+                            corrupt_or_security_rejected.append(entry)
                             continue
-                        zip_file_bytes = zf.read(zip_info.filename)
-                        zip_file_ext = zip_info.filename.rsplit(".", 1)[-1].lower() if "." in zip_info.filename else ""
-                        if zip_file_ext in SUPPORTED_EXTENSIONS:
-                            zip_hash = compute_sha256(zip_file_bytes)
-                            is_dup = zip_hash in _seen_hashes
-                            if is_dup:
-                                duplicate_count += 1
-                            else:
-                                _seen_hashes[zip_hash] = {
-                                    "filename": zip_info.filename,
-                                    "source": f"{filename}/{zip_info.filename}"
-                                }
 
-                            processed_files.append({
-                                "filename": zip_info.filename,
-                                "parent_archive": filename,
-                                "size_bytes": len(zip_file_bytes),
-                                "status": "DUPLICATE_PRESERVED" if is_dup else "QUEUED",
-                                "sha256": zip_hash,
-                                "is_duplicate": is_dup,
-                                "survey_type": classify_survey_type(zip_info.filename)
-                            })
-            except Exception as e:
-                # If zip fails, don't crash the entire batch
-                pass
-            continue
+                        total_uncompressed += info.file_size
+                        if total_uncompressed > MAX_ZIP_UNCOMPRESSED_BYTES:
+                            entry = archive_store.record_upload_item(
+                                batch_id=batch_id,
+                                filename=f"{filename}/{info.filename}",
+                                extension=os.path.splitext(info.filename)[1].lower(),
+                                size_bytes=info.file_size,
+                                sha256=None,
+                                document_type="ZIP_MEMBER",
+                                status="SECURITY_REJECTED",
+                                reason="ZIP_DECOMPRESSION_SIZE_LIMIT_EXCEEDED",
+                            )
+                            corrupt_or_security_rejected.append(entry)
+                            break
 
-        # Standard file processing
-        file_hash = compute_sha256(contents)
-        is_dup = file_hash in _seen_hashes
-        if is_dup:
-            duplicate_count += 1
+                        compressed_sz = max(1, info.compress_size)
+                        ratio = float(info.file_size) / float(compressed_sz)
+                        if info.file_size > 1024 * 1024 and ratio > MAX_ZIP_COMPRESSION_RATIO:
+                            entry = archive_store.record_upload_item(
+                                batch_id=batch_id,
+                                filename=f"{filename}/{info.filename}",
+                                extension=os.path.splitext(info.filename)[1].lower(),
+                                size_bytes=info.file_size,
+                                sha256=None,
+                                document_type="ZIP_MEMBER",
+                                status="SECURITY_REJECTED",
+                                reason=f"SUSPECTED_ZIP_BOMB (ratio={ratio:.1f}x)",
+                            )
+                            corrupt_or_security_rejected.append(entry)
+                            continue
+
+                        inner_bytes = zf.read(info.filename)
+                        process_single_payload(f"{filename}/{info.filename}", inner_bytes)
+            except zipfile.BadZipFile as exc:
+                entry = archive_store.record_upload_item(
+                    batch_id=batch_id,
+                    filename=filename,
+                    extension=ext,
+                    size_bytes=len(content),
+                    sha256=None,
+                    document_type="ZIP_ARCHIVE",
+                    status="CORRUPT_FILE",
+                    reason=f"Corrupt ZIP archive: {exc}",
+                )
+                corrupt_or_security_rejected.append(entry)
+            except Exception as exc:
+                entry = archive_store.record_upload_item(
+                    batch_id=batch_id,
+                    filename=filename,
+                    extension=ext,
+                    size_bytes=len(content),
+                    sha256=None,
+                    document_type="ZIP_ARCHIVE",
+                    status="PROCESSING_FAILED",
+                    reason=f"ZIP extraction failure: {exc}",
+                )
+                corrupt_or_security_rejected.append(entry)
         else:
-            _seen_hashes[file_hash] = {
-                "filename": filename,
-                "source": f"{folder_name}/{filename}"
-            }
-
-        item = {
-            "filename": filename,
-            "folder": folder_name,
-            "size_bytes": size_bytes,
-            "status": "DUPLICATE_PRESERVED" if is_dup else "QUEUED",
-            "sha256": file_hash,
-            "is_duplicate": is_dup,
-            "survey_type": classify_survey_type(filename)
-        }
-        processed_files.append(item)
-        _upload_queue.append(item)
+            process_single_payload(filename, content)
 
     return {
-        "status": "success",
-        "total_files_received": total_received,
-        "total_extracted_or_queued": len(processed_files),
-        "duplicate_count": duplicate_count,
-        "zero_byte_count": zero_byte_count,
-        "queue_summary": {
-            "queued": sum(1 for f in processed_files if f["status"] == "QUEUED"),
-            "duplicates_flagged": duplicate_count,
-            "zero_byte_warnings": zero_byte_count
+        "batch_id": batch_id,
+        "summary": {
+            "accepted_count": len(accepted),
+            "zero_byte_skipped_count": len(skipped_zero_byte),
+            "duplicate_skipped_count": len(skipped_duplicates),
+            "unsupported_rejected_count": len(rejected_unsupported),
+            "corrupt_or_security_rejected_count": len(corrupt_or_security_rejected),
         },
-        "items": processed_files[:50]  # preview first 50
+        "accepted_files": accepted,
+        "skipped_zero_byte": skipped_zero_byte,
+        "skipped_duplicates": skipped_duplicates,
+        "rejected_unsupported": rejected_unsupported,
+        "corrupt_or_security_rejected": corrupt_or_security_rejected,
     }
 
-@router.get("/queue/status")
-async def get_queue_status():
-    """Returns real-time queue length, processing status, and duplicate tallies."""
-    return {
-        "active_queue_size": len(_upload_queue),
-        "total_unique_hashes": len(_seen_hashes),
-        "sample_queue": _upload_queue[-20:] if _upload_queue else []
-    }
+
+@router.get("/queue", summary="Inspect current bulk processing queue")
+async def get_upload_queue() -> Dict[str, Any]:
+    return archive_store.get_queue_summary()

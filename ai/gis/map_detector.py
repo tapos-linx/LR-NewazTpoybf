@@ -1,200 +1,378 @@
 """
-Cadastral Survey Map Intelligence Engine for LR-NewazTpoybf.
-Detects CS, SA, RS, BS/BRS cadastral maps, Dag plot boundaries, plot numbers,
-roads, rivers, sheet numbers, and north arrows.
-Produces GeoJSON layers and enforces the rule: NEVER HIGHLIGHT ALL PLOTS.
+GIS & Cadastral Map Intelligence Engine.
+Processes scanned CS, SA, RS, and BS/BRS Mouza Maps to:
+1. Detect closed land parcel boundaries (polygons) using OpenCV contour analysis.
+2. Attempt OCR on parcel interior ROIs for Dag/Plot numbers (দাগ নম্বর) when Tesseract is available.
+3. Explicitly distinguish pixel coordinates (PIXEL_SPACE) from geographic coordinates (WGS84).
+4. Highlight ONLY target Dags that have an independently verified/corroborated Dag label.
+
+STRICT FORENSIC RULE:
+Never fabricates parcel grids, sequential Dag numbers (101, 102...), roads, or water bodies
+in production detection. If image decoding fails or no contours are found, returns explicit
+status ('UNSUPPORTED_FORMAT', 'PROCESSING_FAILED', or 'NEEDS_MANUAL_REVIEW').
 """
 
-from typing import Dict, Any, List, Optional, Tuple
-import json
-import math
-import numpy as np
-import cv2
-from shapely.geometry import Polygon, mapping, Point, LineString
+from __future__ import annotations
+
+import re
+import shutil
+from typing import Any, Dict, List, Optional, Tuple
+
+try:
+    import cv2
+    import numpy as np
+    HAS_CV2 = True
+except ImportError:
+    cv2 = None  # type: ignore
+    np = None  # type: ignore
+    HAS_CV2 = False
+
+try:
+    import pytesseract
+    from PIL import Image
+    HAS_PYTESSERACT = True
+except ImportError:
+    pytesseract = None  # type: ignore
+    Image = None  # type: ignore
+    HAS_PYTESSERACT = False
+
+
+BENGALI_TO_ENGLISH = str.maketrans("০১২৩৪৫৬৭৮৯", "0123456789")
+ENGLISH_TO_BENGALI = str.maketrans("0123456789", "০১২৩৪৫৬৭৮৯")
+
+
+def normalize_dag_token(value: Optional[str]) -> str:
+    if not value:
+        return ""
+    cleaned = str(value).strip().translate(BENGALI_TO_ENGLISH)
+    return re.sub(r"[^0-9A-Za-z/]", "", cleaned)
+
 
 class CadastralMapDetector:
     """
-    Forensic GIS engine for Bangladesh Cadastral Survey Sheets:
-    - CS (1888-1940, 16 inches = 1 mile scale)
-    - SA (1956-1962, state acquisition revisions)
-    - RS (1965-1990, revisional survey)
-    - BS/BRS/City Survey (1998-present)
+    Analyzes high-resolution cadastral sheet images and extracts vector polygons
+    in pixel space (or projected space only when explicit Ground Control Points are provided).
     """
 
-    def __init__(self, survey_type: str = "CS"):
-        self.survey_type = survey_type.upper()
-        self.scale = "16 inches = 1 mile"
+    def __init__(self, survey_type: str = "RS", scale_ratio: Optional[str] = None):
+        self.survey_type = survey_type
+        self.scale_ratio = scale_ratio
 
-    def detect_parcels(self, map_image_bytes: bytes) -> Dict[str, Any]:
-        """
-        Analyzes cadastral map image:
-        - Segments parcel polygons (Dags)
-        - OCRs Bangla parcel numbers
-        - Detects road lines (double continuous lines)
-        - Detects water bodies (rivers, khal, pukur)
-        - Identifies sheet number and North arrow
-        """
-        nparr = np.frombuffer(map_image_bytes, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        if img is None:
-            # Generate simulated realistic parcels for forensic mapping
-            return self._generate_cadastral_dataset()
+    def _can_run_roi_ocr(self) -> bool:
+        return HAS_PYTESSERACT and shutil.which("tesseract") is not None
 
-        h, w = img.shape[:2]
-        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        blurred = cv2.GaussianBlur(gray, (5, 5), 0)
-        edges = cv2.Canny(blurred, 50, 150)
+    def _ocr_dag_inside_roi(self, gray_img: Any, bbox: Tuple[int, int, int, int]) -> Tuple[Optional[str], float]:
+        if not self._can_run_roi_ocr() or gray_img is None:
+            return None, 0.0
+        x, y, w, h = bbox
+        if w < 12 or h < 12:
+            return None, 0.0
+        roi = gray_img[max(0, y): y + h, max(0, x): x + w]
+        if roi.size == 0:
+            return None, 0.0
+        try:
+            pil_roi = Image.fromarray(roi)
+            data = pytesseract.image_to_data(
+                pil_roi,
+                lang="ben+eng",
+                config="--oem 1 --psm 7",
+                output_type=pytesseract.Output.DICT,
+            )
+            best_dag: Optional[str] = None
+            best_conf = 0.0
+            for idx, word in enumerate(data.get("text", [])):
+                token = normalize_dag_token(word)
+                if token and any(ch.isdigit() for ch in token):
+                    conf = max(0.0, float(data["conf"][idx]) / 100.0)
+                    if conf > best_conf:
+                        best_dag = token
+                        best_conf = conf
+            return best_dag, round(best_conf, 4)
+        except Exception:
+            return None, 0.0
 
-        contours, _ = cv2.findContours(edges, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-        parcels = []
-        dag_counter = 101
-
-        for c in contours:
-            area = cv2.contourArea(c)
-            if 1500 < area < (h * w * 0.4): # Exclude border and noise
-                peri = cv2.arcLength(c, True)
-                approx = cv2.approxPolyDP(c, 0.02 * peri, True)
-                if len(approx) >= 3:
-                    pts = approx.reshape(-1, 2).tolist()
-                    M = cv2.moments(c)
-                    cx = int(M["m10"] / (M["m00"] + 1e-5))
-                    cy = int(M["m01"] / (M["m00"] + 1e-5))
-
-                    parcels.append({
-                        "dag_no": str(dag_counter),
-                        "dag_no_bn": self._to_bangla_digits(str(dag_counter)),
-                        "polygon_coords": pts,
-                        "centroid": [cx, cy],
-                        "area_pixels": float(area),
-                        "area_decimals": round(area / 120.0, 2),
-                        "is_matched_inheritance": False
-                    })
-                    dag_counter += 1
-
-        if not parcels:
-            return self._generate_cadastral_dataset()
-
-        return {
-            "survey_type": self.survey_type,
-            "scale": self.scale,
-            "detected_dags_count": len(parcels),
-            "detected_dags": parcels,
-            "road_lines": [
-                {"name": "মৌজা সংযোগ সড়ক (District Road)", "points": [[0, h // 2], [w, h // 2]]}
-            ],
-            "water_bodies": [
-                {"name": "নদী / খাল (Canal)", "type": "khal", "area_decimals": 145.2}
-            ],
-            "sheet_number": "১ নং চাদর (Sheet No. 1)",
-            "has_north_arrow": True,
-            "north_arrow_orientation_degrees": 0.0
-        }
-
-    def _generate_cadastral_dataset(self) -> Dict[str, Any]:
-        """Provides verified cadastral survey layout with realistic Dag polygons."""
-        dags = [
-            {"dag_no": "501", "dag_no_bn": "৫০১", "polygon_coords": [[50, 60], [180, 55], [190, 160], [60, 170]], "centroid": [120, 110], "area_decimals": 32.5},
-            {"dag_no": "502", "dag_no_bn": "৫০২", "polygon_coords": [[190, 55], [320, 50], [330, 155], [195, 160]], "centroid": [260, 105], "area_decimals": 28.0},
-            {"dag_no": "503", "dag_no_bn": "৫০৩", "polygon_coords": [[330, 50], [460, 60], [450, 170], [335, 165]], "centroid": [390, 110], "area_decimals": 35.4},
-            {"dag_no": "504", "dag_no_bn": "৫০৪", "polygon_coords": [[60, 180], [195, 175], [185, 290], [55, 285]], "centroid": [125, 230], "area_decimals": 41.2},
-            {"dag_no": "505", "dag_no_bn": "৫০৫", "polygon_coords": [[200, 175], [335, 170], [330, 295], [190, 290]], "centroid": [265, 230], "area_decimals": 24.6},
-            {"dag_no": "506", "dag_no_bn": "৫০৬", "polygon_coords": [[340, 170], [455, 175], [450, 295], [335, 295]], "centroid": [395, 235], "area_decimals": 30.1},
-            {"dag_no": "507", "dag_no_bn": "৫০৭", "polygon_coords": [[55, 305], [185, 305], [180, 420], [50, 415]], "centroid": [115, 360], "area_decimals": 29.8},
-            {"dag_no": "508", "dag_no_bn": "৫০৮", "polygon_coords": [[190, 305], [330, 305], [325, 425], [185, 420]], "centroid": [255, 365], "area_decimals": 37.0},
-            {"dag_no": "509", "dag_no_bn": "৫০৯", "polygon_coords": [[335, 305], [460, 310], [450, 430], [330, 425]], "centroid": [390, 370], "area_decimals": 26.3}
-        ]
-        return {
-            "survey_type": self.survey_type,
-            "scale": self.scale,
-            "detected_dags_count": len(dags),
-            "detected_dags": dags,
-            "road_lines": [
-                {"name": "গ্রামীণ পাকা রাস্তা", "points": [[30, 170], [480, 170]]}
-            ],
-            "water_bodies": [
-                {"name": "পুকুর (Pond)", "type": "pond", "area_decimals": 18.5, "coords": [[220, 200], [300, 200], [300, 260], [220, 260]]}
-            ],
-            "sheet_number": "১ নং চাদর (Sheet No. 1)",
-            "has_north_arrow": True,
-            "north_arrow_orientation_degrees": 0.0
-        }
-
-    def highlight_target_dags(
+    def detect_parcels(
         self,
-        map_image_bytes: bytes,
-        target_dags: List[str]
+        image_bytes: bytes,
+        target_dags: Optional[List[str]] = None,
+        ocr_dag_map: Optional[Dict[int, str]] = None,
+        ground_control_points: Optional[List[Dict[str, float]]] = None,
     ) -> Dict[str, Any]:
         """
-        STRICT FORENSIC RULE:
-        Never highlight every plot.
-        Highlights ONLY the lands matched from the inheritance certificate (target_dags),
-        while retaining the standard cadastral ink outline for all other parcels.
+        Detects closed polygon boundaries from a cadastral map image.
+        Never falls back to synthetic datasets when decoding fails or zero parcels are detected.
         """
-        cadastral_data = self.detect_parcels(map_image_bytes)
-        normalized_targets = set(str(d).strip() for d in target_dags)
-
-        highlighted_plots = []
-        unmatched_plots = []
-
-        for p in cadastral_data["detected_dags"]:
-            dag_str = str(p["dag_no"])
-            dag_bn = str(p.get("dag_no_bn", ""))
-            if dag_str in normalized_targets or dag_bn in normalized_targets:
-                p["is_matched_inheritance"] = True
-                p["highlight_color"] = "#16A34A" # Emerald Green
-                p["badge"] = "উত্তরাধিকার সূত্রে স্বত্বাধিকার (Inherited)"
-                highlighted_plots.append(p)
-            else:
-                p["is_matched_inheritance"] = False
-                p["highlight_color"] = None
-                unmatched_plots.append(p)
-
-        geojson = self.to_geojson(cadastral_data["detected_dags"])
-
-        return {
-            "survey_type": cadastral_data["survey_type"],
-            "sheet_number": cadastral_data["sheet_number"],
-            "total_parcels": len(cadastral_data["detected_dags"]),
-            "highlighted_plots_count": len(highlighted_plots),
-            "highlighted_plots": highlighted_plots,
-            "unmatched_plots_count": len(unmatched_plots),
-            "geojson": geojson,
-            "road_lines": cadastral_data["road_lines"],
-            "water_bodies": cadastral_data["water_bodies"],
-            "has_north_arrow": cadastral_data["has_north_arrow"]
+        normalized_targets = {
+            normalize_dag_token(d) for d in (target_dags or []) if normalize_dag_token(d)
         }
 
-    def to_geojson(self, parcels: List[Dict[str, Any]]) -> Dict[str, Any]:
-        """Converts detected cadastral parcels to standard GeoJSON FeatureCollection."""
-        features = []
-        for p in parcels:
-            coords = p.get("polygon_coords", [])
-            if len(coords) >= 3:
-                # Close the polygon ring
-                ring = coords + [coords[0]]
-                # Normalized coordinates
-                geo_coords = [[[float(pt[0]), float(pt[1])] for pt in ring]]
-                features.append({
+        if not image_bytes or len(image_bytes) == 0:
+            return {
+                "status": "PROCESSING_FAILED",
+                "error": "ZERO_BYTE_INPUT",
+                "survey_type": self.survey_type,
+                "coordinate_system": "PIXEL_SPACE",
+                "is_georeferenced": False,
+                "total_parcels_detected": 0,
+                "highlighted_target_count": 0,
+                "highlighting_rule": "STRICT_TARGET_ONLY",
+                "parcels": [],
+                "road_lines": [],
+                "water_bodies": [],
+                "requires_manual_review": True,
+            }
+
+        if not HAS_CV2:
+            return {
+                "status": "NOT_CONFIGURED",
+                "error": "OpenCV (cv2) is not installed in the runtime environment.",
+                "survey_type": self.survey_type,
+                "coordinate_system": "PIXEL_SPACE",
+                "is_georeferenced": False,
+                "total_parcels_detected": 0,
+                "highlighted_target_count": 0,
+                "highlighting_rule": "STRICT_TARGET_ONLY",
+                "parcels": [],
+                "road_lines": [],
+                "water_bodies": [],
+                "requires_manual_review": True,
+            }
+
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img is None:
+            return {
+                "status": "UNSUPPORTED_FORMAT",
+                "error": "Could not decode cadastral sheet image bytes.",
+                "survey_type": self.survey_type,
+                "coordinate_system": "PIXEL_SPACE",
+                "is_georeferenced": False,
+                "total_parcels_detected": 0,
+                "highlighted_target_count": 0,
+                "highlighting_rule": "STRICT_TARGET_ONLY",
+                "parcels": [],
+                "road_lines": [],
+                "water_bodies": [],
+                "requires_manual_review": True,
+            }
+
+        gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        edges = cv2.Canny(gray, 50, 150, apertureSize=3)
+        kernel = np.ones((3, 3), np.uint8)
+        closed_edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
+
+        contours, _ = cv2.findContours(closed_edges, cv2.RETR_CCOMP, cv2.CHAIN_APPROX_SIMPLE)
+
+        parcels: List[Dict[str, Any]] = []
+        parcel_index = 1
+        for cnt in contours:
+            area = float(cv2.contourArea(cnt))
+            if 400.0 < area < 250000.0:
+                epsilon = 0.02 * cv2.arcLength(cnt, True)
+                approx = cv2.approxPolyDP(cnt, epsilon, True)
+                if len(approx) >= 4:
+                    M = cv2.moments(cnt)
+                    cx = int(M["m10"] / M["m00"]) if M["m00"] != 0 else 0
+                    cy = int(M["m01"] / M["m00"]) if M["m00"] != 0 else 0
+                    x, y, w, h = cv2.boundingRect(cnt)
+                    polygon_pts = [[int(pt[0][0]), int(pt[0][1])] for pt in approx]
+
+                    # Determine Dag label ONLY from explicit ocr_dag_map or genuine ROI OCR
+                    supplied_dag = (ocr_dag_map or {}).get(parcel_index)
+                    if supplied_dag:
+                        dag_str: Optional[str] = normalize_dag_token(supplied_dag)
+                        dag_conf = 0.90
+                        dag_source = "SUPPLIED_OCR_MAP"
+                    else:
+                        dag_str, dag_conf = self._ocr_dag_inside_roi(gray, (x, y, w, h))
+                        dag_source = "TESSERACT_ROI_OCR" if dag_str else "UNRECOGNIZED"
+
+                    is_target = bool(
+                        dag_str
+                        and dag_str in normalized_targets
+                        and len(normalized_targets) > 0
+                    )
+
+                    parcels.append(
+                        {
+                            "parcel_index": parcel_index,
+                            "dag_no": dag_str,
+                            "dag_no_bengali": dag_str.translate(ENGLISH_TO_BENGALI) if dag_str else None,
+                            "dag_confidence": dag_conf,
+                            "dag_source": dag_source,
+                            "centroid_px": [cx, cy],
+                            "bbox_px": [int(x), int(y), int(w), int(h)],
+                            "polygon_px": polygon_pts,
+                            "pixel_area": round(area, 2),
+                            "estimated_decimals": None,  # Requires verified map scale + calibration
+                            "is_target_matched": is_target,
+                            "stroke_style": "HIGHLIGHT_GOLD_RED" if is_target else "DEFAULT_SLATE",
+                            "status": "EXTRACTED_PENDING_REVIEW" if dag_str else "NEEDS_MANUAL_REVIEW",
+                        }
+                    )
+                    parcel_index += 1
+
+        if not parcels:
+            return {
+                "status": "NEEDS_MANUAL_REVIEW",
+                "error": "No closed parcel contours met cadastral geometry thresholds.",
+                "survey_type": self.survey_type,
+                "scale_ratio": self.scale_ratio,
+                "image_dimensions_px": [int(img.shape[1]), int(img.shape[0])],
+                "coordinate_system": "PIXEL_SPACE",
+                "is_georeferenced": False,
+                "total_parcels_detected": 0,
+                "highlighted_target_count": 0,
+                "highlighting_rule": "STRICT_TARGET_ONLY",
+                "parcels": [],
+                "road_lines": [],
+                "water_bodies": [],
+                "requires_manual_review": True,
+            }
+
+        is_georef = bool(ground_control_points and len(ground_control_points) >= 3)
+        highlighted_count = sum(1 for p in parcels if p["is_target_matched"])
+
+        return {
+            "status": "EXTRACTED_PENDING_REVIEW" if any(p["dag_no"] for p in parcels) else "NEEDS_MANUAL_REVIEW",
+            "survey_type": self.survey_type,
+            "scale_ratio": self.scale_ratio,
+            "image_dimensions_px": [int(img.shape[1]), int(img.shape[0])],
+            "coordinate_system": "GEOGRAPHIC_WGS84" if is_georef else "PIXEL_SPACE",
+            "is_georeferenced": is_georef,
+            "total_parcels_detected": len(parcels),
+            "highlighted_target_count": highlighted_count,
+            "highlighting_rule": "STRICT_TARGET_ONLY",
+            "parcels": parcels,
+            "road_lines": [],
+            "water_bodies": [],
+            "requires_manual_review": True,
+        }
+
+    def export_geojson(
+        self,
+        detection_result: Dict[str, Any],
+        origin_lat: Optional[float] = None,
+        origin_lon: Optional[float] = None,
+        pixel_to_degree_scale: Optional[float] = None,
+    ) -> Dict[str, Any]:
+        """
+        Exports detected parcels to GeoJSON FeatureCollection.
+        If origin_lat/origin_lon/pixel_to_degree_scale are not provided, exports in
+        explicit non-georeferenced PIXEL_SPACE coordinates so callers never confuse
+        pixel coordinates with real GPS coordinates.
+        """
+        is_calibrated = (
+            origin_lat is not None
+            and origin_lon is not None
+            and pixel_to_degree_scale is not None
+            and pixel_to_degree_scale > 0
+        )
+        features: List[Dict[str, Any]] = []
+        for p in detection_result.get("parcels", []):
+            poly = p.get("polygon_px", [])
+            if not poly:
+                continue
+            if is_calibrated:
+                ring = [
+                    [
+                        round(float(origin_lon) + pt[0] * float(pixel_to_degree_scale), 6),
+                        round(float(origin_lat) - pt[1] * float(pixel_to_degree_scale), 6),
+                    ]
+                    for pt in poly
+                ]
+            else:
+                ring = [[float(pt[0]), float(pt[1])] for pt in poly]
+
+            if ring[0] != ring[-1]:
+                ring.append(ring[0])
+
+            features.append(
+                {
                     "type": "Feature",
+                    "properties": {
+                        "parcel_index": p.get("parcel_index"),
+                        "dag_no": p.get("dag_no"),
+                        "dag_confidence": p.get("dag_confidence", 0.0),
+                        "survey_type": detection_result.get("survey_type", self.survey_type),
+                        "pixel_area": p.get("pixel_area"),
+                        "estimated_decimals": p.get("estimated_decimals"),
+                        "is_target_matched": p.get("is_target_matched", False),
+                        "stroke_style": p.get("stroke_style", "DEFAULT_SLATE"),
+                        "coordinate_system": "GEOGRAPHIC_WGS84" if is_calibrated else "PIXEL_SPACE",
+                        "status": p.get("status", "NEEDS_MANUAL_REVIEW"),
+                    },
                     "geometry": {
                         "type": "Polygon",
-                        "coordinates": geo_coords
+                        "coordinates": [ring],
                     },
-                    "properties": {
-                        "dag_no": p.get("dag_no"),
-                        "dag_no_bn": p.get("dag_no_bn"),
-                        "area_decimals": p.get("area_decimals"),
-                        "is_matched_inheritance": p.get("is_matched_inheritance", False),
-                        "highlight_color": p.get("highlight_color")
-                    }
-                })
+                }
+            )
+
         return {
             "type": "FeatureCollection",
-            "features": features
+            "metadata": {
+                "survey_type": detection_result.get("survey_type", self.survey_type),
+                "scale_ratio": detection_result.get("scale_ratio"),
+                "coordinate_system": "GEOGRAPHIC_WGS84" if is_calibrated else "PIXEL_SPACE",
+                "is_georeferenced": is_calibrated,
+                "highlighting_rule": "STRICT_TARGET_ONLY",
+                "highlighted_count": detection_result.get("highlighted_target_count", 0),
+                "data_classification": detection_result.get("data_classification", "EXTRACTED_EVIDENCE"),
+            },
+            "features": features,
         }
 
-    def _to_bangla_digits(self, text: str) -> str:
-        bn_map = {"0": "০", "1": "১", "2": "২", "3": "৩", "4": "৪",
-                  "5": "৫", "6": "৬", "7": "৭", "8": "৮", "9": "৯"}
-        return "".join(bn_map.get(ch, ch) for ch in text)
+    @staticmethod
+    def create_synthetic_test_dataset(
+        survey_type: str = "RS",
+        target_dags: Optional[List[str]] = None,
+    ) -> Dict[str, Any]:
+        """
+        Isolated synthetic test fixture for unit tests ONLY.
+        Explicitly labelled SYNTHETIC_TEST_DATA and never called by detect_parcels().
+        """
+        normalized_targets = {
+            normalize_dag_token(d) for d in (target_dags or []) if normalize_dag_token(d)
+        }
+        grid_specs = [
+            ("501", [120, 140], [[60, 80], [180, 80], [180, 200], [60, 200]], 14400.0),
+            ("502", [240, 140], [[180, 80], [300, 80], [300, 200], [180, 200]], 14400.0),
+            ("503", [360, 140], [[300, 80], [420, 80], [420, 200], [300, 200]], 14400.0),
+            ("504", [120, 260], [[60, 200], [180, 200], [180, 320], [60, 320]], 14400.0),
+        ]
+        parcels = []
+        for idx, (dag, centroid, poly, area) in enumerate(grid_specs, start=1):
+            is_target = dag in normalized_targets and len(normalized_targets) > 0
+            parcels.append(
+                {
+                    "parcel_index": idx,
+                    "dag_no": dag,
+                    "dag_no_bengali": dag.translate(ENGLISH_TO_BENGALI),
+                    "dag_confidence": 1.0,
+                    "dag_source": "SYNTHETIC_FIXTURE",
+                    "centroid_px": centroid,
+                    "bbox_px": [poly[0][0], poly[0][1], 120, 120],
+                    "polygon_px": poly,
+                    "pixel_area": area,
+                    "estimated_decimals": None,
+                    "is_target_matched": is_target,
+                    "stroke_style": "HIGHLIGHT_GOLD_RED" if is_target else "DEFAULT_SLATE",
+                    "status": "SYNTHETIC_TEST_DATA",
+                }
+            )
+        return {
+            "status": "SYNTHETIC_TEST_DATA",
+            "data_classification": "SYNTHETIC_TEST_DATA",
+            "survey_type": survey_type,
+            "scale_ratio": "16 inches = 1 mile (SYNTHETIC)",
+            "coordinate_system": "PIXEL_SPACE",
+            "is_georeferenced": False,
+            "total_parcels_detected": len(parcels),
+            "highlighted_target_count": sum(1 for p in parcels if p["is_target_matched"]),
+            "highlighting_rule": "STRICT_TARGET_ONLY",
+            "parcels": parcels,
+            "road_lines": [],
+            "water_bodies": [],
+            "requires_manual_review": True,
+        }

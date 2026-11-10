@@ -3,75 +3,138 @@ name: Production Release Pipeline
 on:
   push:
     tags:
-      - 'v*'
-    branches:
-      - main
+      - "v*.*.*"
   workflow_dispatch:
+    inputs:
+      tag_name:
+        description: "Release tag (e.g. v2.2.0)"
+        required: true
+        default: "v2.2.0"
+
+permissions:
+  contents: write
 
 jobs:
-  release:
-    name: Build & Publish Release Artifacts
-    runs-on: ubuntu-latest
+  verify-and-release:
+    name: Gate Release on Backend Pytest, Android Unit Tests & Signed Build
+    runs-on: ubuntu-24.04
+    env:
+      RELEASE_KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+      STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
     steps:
-      - name: Checkout Code
+      - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Validate Required Release Signing Secrets
+        run: |
+          if [ -z "$RELEASE_KEYSTORE_B64" ] || [ -z "$STORE_PASSWORD" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Missing required release signing secrets (RELEASE_KEYSTORE_BASE64, STORE_PASSWORD, KEY_PASSWORD). Aborting release."
+            exit 1
+          fi
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Ubuntu 24.04 OCR & GIS Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgl1 \
+            libglib2.0-0 \
+            tesseract-ocr \
+            tesseract-ocr-ben \
+            tesseract-ocr-eng
+
+      - name: Install Python Dependencies & Run Backend Pytest Gate
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install pytest httpx
+          PYTHONPATH=. pytest backend/tests -v
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'gradle'
+          distribution: "temurin"
+          java-version: "17"
 
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
 
-      - name: Build Standalone APK
-        run: ./gradlew :app:assembleDebug --no-daemon
-
-      - name: Package Forensic Docs & Schema
+      - name: Materialize Debug Keystore for Test Gate
         run: |
-          mkdir -p release-bundle
-          cp app/build/outputs/apk/debug/*.apk release-bundle/LR-Newaz-v1.0.apk || cp *.apk release-bundle/LR-Newaz-v1.0.apk || true
-          cp app/build/outputs/apk/debug/*.apk release-bundle/app-debug.apk || cp *.apk release-bundle/app-debug.apk || true
-          cp docs/ARCHITECTURE.md release-bundle/ || true
-          cp README.md release-bundle/ || true
-          if [ -d "tutorial" ]; then
-            cp tutorial/Storyboard.pdf release-bundle/ || true
-            cp tutorial/Tutorial_Script.pdf release-bundle/ || true
-            cp tutorial/Recording_Checklist.pdf release-bundle/ || true
-            cp tutorial/Thumbnail.png release-bundle/ || true
-            cp tutorial/VoiceOver_BN.docx release-bundle/ || true
-            cp tutorial/VoiceOver_EN.docx release-bundle/ || true
+          if [ ! -f debug.keystore ]; then
+            if [ -f debug.keystore.base64 ]; then
+              base64 -d debug.keystore.base64 > debug.keystore
+            else
+              keytool -genkeypair -v \
+                -keystore debug.keystore \
+                -storepass android \
+                -alias androiddebugkey \
+                -keypass android \
+                -keyalg RSA \
+                -keysize 2048 \
+                -validity 10000 \
+                -dname "CN=Android Debug,O=Android,C=US"
+            fi
           fi
+          test -s debug.keystore
 
-      - name: Create GitHub Release
+      - name: Run Android Unit & Robolectric Gate
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Build Debug APK Independently
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Decode Protected Release Keystore
+        run: |
+          echo "$RELEASE_KEYSTORE_B64" | base64 -d > "${GITHUB_WORKSPACE}/my-upload-key.jks"
+          chmod 600 "${GITHUB_WORKSPACE}/my-upload-key.jks"
+          test -s "${GITHUB_WORKSPACE}/my-upload-key.jks"
+
+      - name: Build Signed Release APK & AAB Independently
+        env:
+          KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
+        run: |
+          gradle :app:assembleRelease --stacktrace
+          gradle :app:bundleRelease --stacktrace
+
+      - name: Shred Temporary Release Keystore
+        if: always()
+        run: rm -f "${GITHUB_WORKSPACE}/my-upload-key.jks"
+
+      - name: Collect Verified Release Artifacts & Generate SHA-256 Checksums
+        run: |
+          mkdir -p release-dist
+          cp app/build/outputs/apk/debug/*.apk release-dist/Newaz-Land-Record-Extractor-debug.apk
+          cp app/build/outputs/apk/release/*.apk release-dist/Newaz-Land-Record-Extractor-release.apk
+          cp app/build/outputs/bundle/release/*.aab release-dist/Newaz-Land-Record-Extractor-release.aab
+          cd release-dist && sha256sum * > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Upload Release Artifacts to Workflow Run
+        uses: actions/upload-artifact@v4
+        with:
+          name: Newaz-Land-Record-Extractor-Release-Bundle
+          path: release-dist/*
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
-          name: "LR-Newaz Version 1.0 Production Release"
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}
-          files: release-bundle/*
+          tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
+          name: "Newaz Land Record Extractor ${{ github.event.inputs.tag_name || github.ref_name }}"
           body: |
-            ## 📱 LR-Newaz Version 1.0 Production Release (Standalone APK)
-            
-            Download the official Android application package (`.apk`) directly to your phone's memory to install and use:
-            
-            ### 📥 Download Links
-            - **Primary App APK:** [`LR-Newaz-v1.0.apk`](https://github.com/${{ github.repository }}/releases/download/${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}/LR-Newaz-v1.0.apk)
-            - **Debug APK:** [`app-debug.apk`](https://github.com/${{ github.repository }}/releases/download/${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'v1.0.0' }}/app-debug.apk)
-            
-            ### 📲 How to Install on Your Android Phone:
-            1. Tap on **`LR-Newaz-v1.0.apk`** to download it to your phone's storage.
-            2. When the download completes, tap the notification or open your **Files** / **Downloads** app.
-            3. Tap on the downloaded APK file. If Android prompts *"For your security, your phone is not allowed to install unknown apps from this source"*, tap **Settings** and toggle **Allow from this source**.
-            4. Tap **Install** and then **Open** to launch LR-Newaz!
-            
-            ### 🚀 Features Included:
-            - **100% Offline Architecture** (Local SQLite / Room Database)
-            - **Bangla OCR & Historical Handwriting Recognition (HCR)**
-            - **Cadastral Survey Map Intelligence** (CS, SA, RS, BS Polygon Matching)
-            - **Warishnama Inheritance Farayez Balancing & Dag Plot Highlighting**
-            - **Historical Property Atlas** (CS -> SA -> RS -> BS Timeline)
-            - **Multi-Format Export** (PDF Court Dossier, Excel XLSX, GeoJSON, Forensic ZIP)
+            ## বাংলাদেশ ভূমি রেকর্ড এক্সট্রাক্টর ও ফরেনসিক রিসার্চ প্ল্যাটফর্ম (LR-NewazTpoybf)
+            ### Verified Release Gates Passed
+            - **Backend Forensic Pytest Suite**: Passed
+            - **Android Unit & Robolectric Suite**: Passed
+            - **Signed Release APK, AAB & Debug APK**: Verified with SHA-256 Checksums
+          files: release-dist/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

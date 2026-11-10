@@ -35,11 +35,29 @@ data class FolderScanSummary(
     val supportedFiles: List<DiscoveredFile>,
     val zeroByteFiles: List<DiscoveredFile>,
     val duplicateFiles: List<DiscoveredFile> = emptyList(),
+    val corruptOrRejectedFiles: List<String> = emptyList(),
     val ignoredFilesCount: Int,
     val categoriesFound: Map<String, Int>
 )
 
 class SafFolderScanner(private val context: Context) {
+
+    companion object {
+        const val MAX_ZIP_ENTRIES = 500
+        const val MAX_ZIP_UNCOMPRESSED_BYTES = 200L * 1024L * 1024L // 200 MB cap
+
+        fun isSafeZipEntryPath(entryName: String): Boolean {
+            if (entryName.isBlank()) return false
+            val normalized = entryName.replace('\\', '/')
+            if (normalized.startsWith("/") || normalized.contains("../") || normalized.endsWith("/..")) {
+                return false
+            }
+            if (normalized.substringBefore('/').contains(':')) {
+                return false
+            }
+            return true
+        }
+    }
 
     private val supportedExtensions = setOf(
         "pdf", "jpg", "jpeg", "png", "tiff", "tif", "webp", "docx", "xlsx", "zip", "bmp", "csv", "txt", "json"
@@ -60,6 +78,7 @@ class SafFolderScanner(private val context: Context) {
         val supported = mutableListOf<DiscoveredFile>()
         val zeroBytes = mutableListOf<DiscoveredFile>()
         val duplicates = mutableListOf<DiscoveredFile>()
+        val corruptOrRejected = mutableListOf<String>()
         val seenHashes = mutableMapOf<String, String>() // sha256 -> original path
         var ignoredCount = 0
 
@@ -69,6 +88,7 @@ class SafFolderScanner(private val context: Context) {
             supportedOut = supported,
             zeroBytesOut = zeroBytes,
             duplicatesOut = duplicates,
+            corruptOut = corruptOrRejected,
             seenHashes = seenHashes
         ) {
             ignoredCount++
@@ -78,10 +98,11 @@ class SafFolderScanner(private val context: Context) {
 
         FolderScanSummary(
             rootUri = treeUri,
-            totalFilesFound = supported.size + ignoredCount,
+            totalFilesFound = supported.size + ignoredCount + corruptOrRejected.size,
             supportedFiles = supported,
             zeroByteFiles = zeroBytes,
             duplicateFiles = duplicates,
+            corruptOrRejectedFiles = corruptOrRejected,
             ignoredFilesCount = ignoredCount,
             categoriesFound = categories
         )
@@ -90,7 +111,7 @@ class SafFolderScanner(private val context: Context) {
     /**
      * Scans multiple individual file URIs picked from PC local disk, Downloads folder,
      * SD card, or phone memory via ActivityResultContracts.OpenMultipleDocuments().
-     * Automatically unpacks any .zip archives into individual records.
+     * Automatically unpacks any .zip archives into individual records with ZipSlip and ZipBomb protection.
      */
     suspend fun scanMultipleUris(
         uris: List<Uri>,
@@ -99,6 +120,7 @@ class SafFolderScanner(private val context: Context) {
         val supported = mutableListOf<DiscoveredFile>()
         val zeroBytes = mutableListOf<DiscoveredFile>()
         val duplicates = mutableListOf<DiscoveredFile>()
+        val corruptOrRejected = mutableListOf<String>()
         val seenHashes = mutableMapOf<String, String>()
         var ignoredCount = 0
 
@@ -122,10 +144,10 @@ class SafFolderScanner(private val context: Context) {
                     supportedOut = supported,
                     zeroBytesOut = zeroBytes,
                     duplicatesOut = duplicates,
+                    corruptOut = corruptOrRejected,
                     seenHashes = seenHashes
                 )
-                if (extractedCount == 0) {
-                    // Fallback: add the zip file itself if it had no inner supported files
+                if (extractedCount == 0 && corruptOrRejected.isEmpty()) {
                     addDiscoveredItem(
                         uri = uri,
                         name = meta.name,
@@ -169,10 +191,11 @@ class SafFolderScanner(private val context: Context) {
         val categories = supported.groupBy { it.parentFolder }.mapValues { it.value.size }
         FolderScanSummary(
             rootUri = uris.firstOrNull() ?: Uri.EMPTY,
-            totalFilesFound = supported.size + ignoredCount,
+            totalFilesFound = supported.size + ignoredCount + corruptOrRejected.size,
             supportedFiles = supported,
             zeroByteFiles = zeroBytes,
             duplicateFiles = duplicates,
+            corruptOrRejectedFiles = corruptOrRejected,
             ignoredFilesCount = ignoredCount,
             categoriesFound = categories
         )
@@ -308,11 +331,14 @@ class SafFolderScanner(private val context: Context) {
         supportedOut: MutableList<DiscoveredFile>,
         zeroBytesOut: MutableList<DiscoveredFile>,
         duplicatesOut: MutableList<DiscoveredFile>,
+        corruptOut: MutableList<String>,
         seenHashes: MutableMap<String, String>
     ): Int {
         var count = 0
+        var totalDecompressedBytes = 0L
         val unpackDir = File(context.cacheDir, "zip_unpack_${UUID.randomUUID()}")
         unpackDir.mkdirs()
+        val unpackCanonical = unpackDir.canonicalPath + File.separator
         val archiveFolderLabel = "$parentFolder/${zipName.substringBeforeLast('.')}"
 
         try {
@@ -320,6 +346,16 @@ class SafFolderScanner(private val context: Context) {
                 ZipInputStream(rawIn).use { zis ->
                     var entry = zis.nextEntry
                     while (entry != null) {
+                        if (count >= MAX_ZIP_ENTRIES) {
+                            corruptOut.add("$zipName: ZIP entry limit ($MAX_ZIP_ENTRIES) exceeded")
+                            break
+                        }
+                        if (!isSafeZipEntryPath(entry.name)) {
+                            corruptOut.add("$zipName/${entry.name}: Rejected unsafe ZIP path traversal")
+                            zis.closeEntry()
+                            entry = zis.nextEntry
+                            continue
+                        }
                         if (!entry.isDirectory) {
                             val entryPath = entry.name.trimStart('/')
                             val subFolder = entryPath.substringBeforeLast('/', "").trim()
@@ -328,16 +364,42 @@ class SafFolderScanner(private val context: Context) {
                             if (entryName.isNotBlank() && !entryName.startsWith(".") && ext in supportedExtensions && ext != "zip") {
                                 val safeName = entryName.replace(Regex("[^a-zA-Z0-9._\\-\\u0980-\\u09FF]"), "_")
                                 val outFile = File(unpackDir, "${count + 1}_$safeName")
-                                FileOutputStream(outFile).use { fos ->
-                                    zis.copyTo(fos)
+                                if (!outFile.canonicalPath.startsWith(unpackCanonical)) {
+                                    corruptOut.add("$zipName/$entryName: Canonical path traversal blocked")
+                                    zis.closeEntry()
+                                    entry = zis.nextEntry
+                                    continue
                                 }
+
+                                var entryBytesWritten = 0L
+                                var limitExceeded = false
+                                FileOutputStream(outFile).use { fos ->
+                                    val buffer = ByteArray(16384)
+                                    var read: Int
+                                    while (zis.read(buffer).also { read = it } != -1) {
+                                        totalDecompressedBytes += read
+                                        entryBytesWritten += read
+                                        if (totalDecompressedBytes > MAX_ZIP_UNCOMPRESSED_BYTES) {
+                                            limitExceeded = true
+                                            break
+                                        }
+                                        fos.write(buffer, 0, read)
+                                    }
+                                }
+
+                                if (limitExceeded) {
+                                    outFile.delete()
+                                    corruptOut.add("$zipName: ZIP decompression size limit exceeded (${MAX_ZIP_UNCOMPRESSED_BYTES / (1024 * 1024)} MB)")
+                                    break
+                                }
+
                                 val effectiveParent = if (subFolder.isNotBlank()) "$archiveFolderLabel/$subFolder" else archiveFolderLabel
                                 addDiscoveredItem(
                                     uri = Uri.fromFile(outFile),
                                     name = entryName,
                                     parentName = effectiveParent,
                                     mimeType = guessMimeType(ext),
-                                    size = outFile.length(),
+                                    size = entryBytesWritten,
                                     ext = ext,
                                     supportedOut = supportedOut,
                                     zeroBytesOut = zeroBytesOut,
@@ -352,7 +414,8 @@ class SafFolderScanner(private val context: Context) {
                     }
                 }
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            corruptOut.add("$zipName: Corrupt or unreadable ZIP archive (${e.message ?: "decode error"})")
         }
         return count
     }
@@ -363,6 +426,7 @@ class SafFolderScanner(private val context: Context) {
         supportedOut: MutableList<DiscoveredFile>,
         zeroBytesOut: MutableList<DiscoveredFile>,
         duplicatesOut: MutableList<DiscoveredFile>,
+        corruptOut: MutableList<String>,
         seenHashes: MutableMap<String, String>,
         onIgnored: () -> Unit
     ) {
@@ -381,6 +445,7 @@ class SafFolderScanner(private val context: Context) {
                     supportedOut = supportedOut,
                     zeroBytesOut = zeroBytesOut,
                     duplicatesOut = duplicatesOut,
+                    corruptOut = corruptOut,
                     seenHashes = seenHashes,
                     onIgnored = onIgnored
                 )
@@ -397,9 +462,10 @@ class SafFolderScanner(private val context: Context) {
                     supportedOut = supportedOut,
                     zeroBytesOut = zeroBytesOut,
                     duplicatesOut = duplicatesOut,
+                    corruptOut = corruptOut,
                     seenHashes = seenHashes
                 )
-                if (extractedCount == 0) {
+                if (extractedCount == 0 && corruptOut.isEmpty()) {
                     addDiscoveredItem(
                         uri = doc.uri,
                         name = name,

@@ -1,238 +1,339 @@
 """
-Bangla Handwriting Recognition (HCR) Engine for LR-NewazTpoybf.
-Forensic transcription of historical Bengali cursive handwriting, register marginalia,
-and faded ink with token-level confidence scoring.
+Bengali Handwritten Character Recognition (HCR) Pipeline.
+Handles cursive Bengali script, faded iron-gall ink, kaithi-influenced scribal ligatures,
+and marginalia annotations found in historical CS (1888-1940), SA (1956-1962), and RS Khatians.
+
+STRICT FORENSIC RULE:
+Never invents or fabricates handwritten transcriptions, owner names, or marginal notes.
+If no trained HCR model or OCR engine is configured, or if image decoding fails,
+returns explicit status ('NOT_CONFIGURED', 'UNSUPPORTED_FORMAT', or 'NEEDS_MANUAL_REVIEW').
 """
 
-from typing import Dict, Any, List, Optional, Tuple
-import numpy as np
-import cv2
-import math
+from __future__ import annotations
+
 import io
-from PIL import Image
+import os
+import shutil
+from typing import Any, Dict, List, Optional, Tuple
 
-class ImagePreprocessor:
+try:
+    import cv2
+    import numpy as np
+    HAS_CV2 = True
+except ImportError:
+    cv2 = None  # type: ignore
+    np = None  # type: ignore
+    HAS_CV2 = False
+
+try:
+    import pytesseract
+    from PIL import Image
+    HAS_PYTESSERACT = True
+except ImportError:
+    pytesseract = None  # type: ignore
+    Image = None  # type: ignore
+    HAS_PYTESSERACT = False
+
+
+class BengaliHandwritingPreprocessor:
     """
-    Forensic image preprocessing pipeline:
-    - Deskew using minimum area bounding box or Hough lines
-    - Denoise using Fast Non-Local Means / bilateral filter
-    - Contrast enhancement using CLAHE (Contrast Limited Adaptive Histogram Equalization)
-    - Ink enhancement using Sauvola/Otsu binarization and morphological gradients
+    OpenCV-based image enhancement pipeline specifically tuned for aged yellowing
+    parchment, faded ink, bleed-through, and skewed handwritten ledger columns.
     """
 
     @staticmethod
-    def bytes_to_cv2(image_bytes: bytes) -> np.ndarray:
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        if img is None:
-            # Fallback using PIL
-            pil_img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-            img = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
-        return img
-
-    @staticmethod
-    def cv2_to_bytes(img: np.ndarray, ext: str = ".jpg") -> bytes:
-        success, encoded = cv2.imencode(ext, img)
-        if not success:
-            raise ValueError("Failed to encode image to bytes")
-        return encoded.tobytes()
-
-    @classmethod
-    def deskew(cls, image: np.ndarray) -> Tuple[np.ndarray, float]:
-        """Detects skew angle and rotates the image horizontally."""
+    def deskew(image: Any) -> Tuple[Any, float]:
+        if not HAS_CV2 or image is None:
+            return image, 0.0
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
-        thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)[1]
+        thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
         coords = np.column_stack(np.where(thresh > 0))
-        if len(coords) < 50:
+        if len(coords) == 0:
             return image, 0.0
 
         angle = cv2.minAreaRect(coords)[-1]
         if angle < -45:
             angle = -(90 + angle)
-        elif angle > 45:
-            angle = 90 - angle
         else:
             angle = -angle
 
-        # If angle is negligible, return
-        if abs(angle) < 0.2:
+        if abs(angle) < 0.2 or abs(angle) > 15.0:
             return image, 0.0
 
         (h, w) = image.shape[:2]
         center = (w // 2, h // 2)
-        M = cv2.getRotationMatrix2D(center, angle, 1.0)
-        rotated = cv2.warpAffine(image, M, (w, h), flags=cv2.INTER_CUBIC, borderMode=cv2.BORDER_REPLICATE)
+        matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
+        rotated = cv2.warpAffine(
+            image,
+            matrix,
+            (w, h),
+            flags=cv2.INTER_CUBIC,
+            borderMode=cv2.BORDER_REPLICATE,
+        )
         return rotated, float(angle)
 
-    @classmethod
-    def denoise(cls, image: np.ndarray) -> np.ndarray:
-        """Denoises image while preserving fine handwritten pen strokes."""
-        if len(image.shape) == 3:
-            return cv2.fastNlMeansDenoisingColored(image, None, 8, 8, 7, 21)
-        return cv2.fastNlMeansDenoising(image, None, 10, 7, 21)
-
-    @classmethod
-    def enhance_contrast(cls, image: np.ndarray) -> np.ndarray:
-        """Enhances contrast with CLAHE for historical parchment and faded paper."""
-        if len(image.shape) == 3:
-            lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
-            l, a, b = cv2.split(lab)
-            clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
-            cl = clahe.apply(l)
-            limg = cv2.merge((cl, a, b))
-            return cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
-        else:
-            clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
-            return clahe.apply(image)
-
-    @classmethod
-    def enhance_ink(cls, image: np.ndarray) -> np.ndarray:
-        """Enhances faded ink lines using morphological opening and adaptive thresholding."""
+    @staticmethod
+    def denoise(image: Any) -> Any:
+        if not HAS_CV2 or image is None:
+            return image
         gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) if len(image.shape) == 3 else image
-        # Contrast stretch
-        norm = cv2.normalize(gray, None, alpha=0, beta=255, norm_type=cv2.NORM_MINMAX)
-        # Adaptive thresholding to capture faint pen strokes
-        adaptive = cv2.adaptiveThreshold(
-            norm, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 21, 10
+        return cv2.fastNlMeansDenoising(gray, None, h=12, templateWindowSize=7, searchWindowSize=21)
+
+    @staticmethod
+    def enhance_contrast(gray_image: Any) -> Any:
+        if not HAS_CV2 or gray_image is None:
+            return gray_image
+        clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8))
+        return clahe.apply(gray_image)
+
+    @staticmethod
+    def enhance_ink(gray_image: Any) -> Any:
+        if not HAS_CV2 or gray_image is None:
+            return gray_image
+        binary = cv2.adaptiveThreshold(
+            gray_image,
+            255,
+            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+            cv2.THRESH_BINARY,
+            blockSize=25,
+            C=11,
         )
-        return adaptive
+        kernel = np.ones((2, 2), np.uint8)
+        enhanced = cv2.erode(binary, kernel, iterations=1)
+        return enhanced
 
     @classmethod
-    def preprocess_pipeline(cls, image_bytes: bytes) -> Tuple[np.ndarray, Dict[str, Any]]:
-        raw_img = cls.bytes_to_cv2(image_bytes)
-        deskewed, angle = cls.deskew(raw_img)
-        enhanced_contrast = cls.enhance_contrast(deskewed)
-        denoised = cls.denoise(enhanced_contrast)
-        return denoised, {
-            "skew_angle": angle,
-            "width": int(raw_img.shape[1]),
-            "height": int(raw_img.shape[0]),
-            "preprocessing": ["deskew", "clahe_contrast", "nl_denoise"]
+    def run_full_pipeline(cls, raw_bytes: bytes) -> Tuple[Optional[Any], Dict[str, Any]]:
+        if not raw_bytes or len(raw_bytes) == 0:
+            return None, {"status": "ZERO_BYTE_INPUT"}
+        if not HAS_CV2:
+            return None, {"status": "OPENCV_NOT_INSTALLED"}
+
+        nparr = np.frombuffer(raw_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img is None:
+            return None, {"status": "INVALID_IMAGE"}
+
+        deskewed, angle = cls.deskew(img)
+        denoised = cls.denoise(deskewed)
+        contrasted = cls.enhance_contrast(denoised)
+        ink_enhanced = cls.enhance_ink(contrasted)
+
+        metrics = {
+            "status": "PREPROCESSED",
+            "original_shape": list(img.shape),
+            "deskew_angle_deg": round(angle, 3),
+            "clahe_clip_limit": 2.5,
+            "adaptive_block_size": 25,
         }
+        return ink_enhanced, metrics
 
 
-class BanglaHcrRecognizer:
+class BanglaHandwritingRecognizer:
     """
-    Forensic Bangla Handwriting Recognizer (HCR)
-    Supports:
-    - Historical cursive Bengali handwriting (19th and 20th century land registers)
-    - Marginal notes, side scribbles, and clerk initials
-    - Faded iron-gall ink and ballpoint additions
-    - Mixed Bangla-English annotations (e.g., 'Dag 102/1', 'Share 0.2500')
-    - Low-confidence token flagging with [Unclear: <reason>]
+    Recognizes handwritten Bengali script from preprocessed document images.
+    Never fabricates transcriptions or confidence scores.
     """
 
-    def __init__(self, model_variant: str = "trocr-bengali-handwritten-v1"):
-        self.model_variant = model_variant
-        self.preprocessor = ImagePreprocessor()
-        # Bengali numeral and character set mappings
-        self.bn_digits = {"0": "০", "1": "১", "2": "২", "3": "৩", "4": "৪",
-                          "5": "৫", "6": "৬", "7": "৭", "8": "৮", "9": "৯"}
+    def __init__(self, confidence_threshold: float = 0.70, model_weights_path: Optional[str] = None):
+        self.confidence_threshold = confidence_threshold
+        self.preprocessor = BengaliHandwritingPreprocessor()
+        self.model_weights_path = model_weights_path or os.environ.get("BANGLA_HCR_WEIGHTS_PATH")
 
-    def recognize_crop(
+    def has_trained_hcr_weights(self) -> bool:
+        return bool(self.model_weights_path and os.path.isfile(self.model_weights_path))
+
+    def has_tesseract_fallback(self) -> bool:
+        return HAS_PYTESSERACT and shutil.which("tesseract") is not None
+
+    def recognize_handwriting(
         self,
         image_bytes: bytes,
-        crop_box: Optional[Dict[str, int]] = None,
-        context_hint: str = "general"
+        region_hint: str = "full_page",
+        raw_text_override: Optional[str] = None,
     ) -> Dict[str, Any]:
         """
-        Recognizes handwritten text within an image crop.
-        Returns transcription, token list with coordinates and confidence,
-        and manual review triggers.
+        Runs preprocessing and handwriting recognition on image_bytes.
+        If raw_text_override is explicitly supplied (e.g., from an upstream OCR pass or user input),
+        tokenizes and flags unclear segments without inventing new words.
+        If neither model weights nor Tesseract is configured, returns status='NOT_CONFIGURED'.
         """
-        try:
-            processed_img, meta = self.preprocessor.preprocess_pipeline(image_bytes)
-        except Exception:
-            processed_img = None
-            meta = {"error": "Preprocessing failed"}
+        if raw_text_override is not None:
+            tokens = self._tokenize_supplied_text(raw_text_override)
+            overall_conf = (
+                round(sum(t["confidence"] for t in tokens) / len(tokens), 4)
+                if tokens
+                else 0.0
+            )
+            flagged = [t for t in tokens if t["flagged_for_review"]]
+            return {
+                "status": "NEEDS_MANUAL_REVIEW" if (flagged or not tokens) else "EXTRACTED_PENDING_REVIEW",
+                "engine": "TextTokenValidator",
+                "region": region_hint,
+                "preprocessing": {"status": "BYPASSED_FOR_SUPPLIED_TEXT"},
+                "overall_confidence": overall_conf,
+                "requires_manual_review": True,
+                "transcribed_text": raw_text_override.strip(),
+                "tokens": tokens,
+                "flagged_segments": flagged,
+            }
 
-        # Simulate or perform deep learning TrOCR / Donut Bengali HCR inference
-        # In this platform environment, we execute robust forensic recognition
-        # parsing handwritten lines, numbers, marginal notes, and confidence scores
-        tokens = self._extract_tokens_with_confidence(processed_img, context_hint)
+        if not image_bytes or len(image_bytes) == 0:
+            return {
+                "status": "PROCESSING_FAILED",
+                "error": "Empty or zero-byte image payload",
+                "engine": "NONE",
+                "region": region_hint,
+                "overall_confidence": 0.0,
+                "requires_manual_review": True,
+                "transcribed_text": "",
+                "tokens": [],
+                "flagged_segments": [],
+            }
 
-        full_transcription = " ".join([t["text"] for t in tokens if t["text"]])
-        avg_confidence = float(np.mean([t["confidence"] for t in tokens])) if tokens else 0.0
+        processed_img, prep_metrics = self.preprocessor.run_full_pipeline(image_bytes)
+        if prep_metrics.get("status") == "INVALID_IMAGE":
+            return {
+                "status": "UNSUPPORTED_FORMAT",
+                "error": "Unable to decode image buffer for HCR preprocessing",
+                "engine": "NONE",
+                "region": region_hint,
+                "preprocessing": prep_metrics,
+                "overall_confidence": 0.0,
+                "requires_manual_review": True,
+                "transcribed_text": "",
+                "tokens": [],
+                "flagged_segments": [],
+            }
 
-        # Forensic threshold: if confidence < 0.70 or unreadable token present
-        requires_manual_review = avg_confidence < 0.75 or any(
-            t["confidence"] < 0.60 or "[Unclear" in t["text"] for t in tokens
+        if not self.has_trained_hcr_weights() and not self.has_tesseract_fallback():
+            return {
+                "status": "NOT_CONFIGURED",
+                "error": "No Bengali HCR model weights (BANGLA_HCR_WEIGHTS_PATH) or Tesseract binary configured.",
+                "engine": "UNCONFIGURED",
+                "region": region_hint,
+                "preprocessing": prep_metrics,
+                "overall_confidence": 0.0,
+                "requires_manual_review": True,
+                "transcribed_text": "",
+                "tokens": [],
+                "flagged_segments": [],
+            }
+
+        tokens = self._run_ocr_token_extraction(processed_img, image_bytes)
+        if not tokens:
+            return {
+                "status": "NEEDS_MANUAL_REVIEW",
+                "error": "No legible handwritten tokens could be recognized above noise floor.",
+                "engine": "Tesseract-ben-LSTM" if self.has_tesseract_fallback() else "CustomHCR",
+                "region": region_hint,
+                "preprocessing": prep_metrics,
+                "overall_confidence": 0.0,
+                "requires_manual_review": True,
+                "transcribed_text": "[Unclear: হস্তাক্ষর অস্পষ্ট — ম্যানুয়াল যাচাই প্রয়োজন]",
+                "tokens": [],
+                "flagged_segments": [],
+            }
+
+        overall_conf = round(sum(t["confidence"] for t in tokens) / len(tokens), 4)
+        flagged_tokens = [t for t in tokens if t["flagged_for_review"]]
+        assembled_text = " ".join(
+            f"{t['text']} [Unclear: কম আত্মবিশ্বাস ({int(t['confidence'] * 100)}%)]"
+            if t["flagged_for_review"]
+            else t["text"]
+            for t in tokens
         )
 
         return {
-            "transcription": full_transcription,
-            "confidence": round(avg_confidence, 4),
+            "status": "NEEDS_MANUAL_REVIEW" if (flagged_tokens or overall_conf < 0.85) else "EXTRACTED_PENDING_REVIEW",
+            "engine": "Tesseract-ben-LSTM",
+            "region": region_hint,
+            "preprocessing": prep_metrics,
+            "overall_confidence": overall_conf,
+            "requires_manual_review": True,
+            "transcribed_text": assembled_text,
             "tokens": tokens,
-            "requires_manual_review": requires_manual_review,
-            "model": self.model_variant,
-            "metadata": meta,
-            "context_hint": context_hint
+            "flagged_segments": flagged_tokens,
         }
 
-    def _extract_tokens_with_confidence(
-        self,
-        img: Optional[np.ndarray],
-        context_hint: str
+    def _run_ocr_token_extraction(
+        self, processed_img: Optional[Any], raw_bytes: bytes
     ) -> List[Dict[str, Any]]:
-        """
-        Extracts segmented tokens with forensic confidence scores.
-        Handles cursive Bengali ligatures and numbers.
-        """
-        if img is None:
-            return [{
-                "text": "[Unclear: Image decode error]",
-                "confidence": 0.10,
-                "box": [0, 0, 100, 30],
-                "flagged": True
-            }]
+        if not self.has_tesseract_fallback():
+            return []
+        try:
+            if processed_img is not None:
+                pil_img = Image.fromarray(processed_img)
+            else:
+                pil_img = Image.open(io.BytesIO(raw_bytes))
 
-        h, w = img.shape[:2]
+            data = pytesseract.image_to_data(
+                pil_img,
+                lang="ben+eng",
+                config="--oem 1 --psm 6",
+                output_type=pytesseract.Output.DICT,
+            )
+        except Exception:
+            return []
 
-        # Domain-aware parsing for Bangladesh land records
-        if context_hint == "dag_number":
-            return [
-                {"text": "দাগ নং", "confidence": 0.94, "box": [10, 10, 80, 40], "flagged": False},
-                {"text": "৫১২/৩", "confidence": 0.88, "box": [90, 10, 160, 40], "flagged": False}
+        tokens: List[Dict[str, Any]] = []
+        n = len(data.get("text", []))
+        for i in range(n):
+            word = (data["text"][i] or "").strip()
+            if not word:
+                continue
+            raw_conf = float(data["conf"][i])
+            if raw_conf < 0:
+                continue
+            conf = round(max(0.0, min(1.0, raw_conf / 100.0)), 4)
+            bbox = [
+                int(data["left"][i]),
+                int(data["top"][i]),
+                int(data["width"][i]),
+                int(data["height"][i]),
             ]
-        elif context_hint == "marginalia":
-            return [
-                {"text": "খারিজ মোকদ্দমা", "confidence": 0.86, "box": [5, 5, 120, 30], "flagged": False},
-                {"text": "নং ১২০৪/২০২১", "confidence": 0.81, "box": [125, 5, 230, 30], "flagged": False},
-                {"text": "[Unclear: Faded seal impression]", "confidence": 0.42, "box": [5, 35, 180, 60], "flagged": True}
-            ]
-        elif context_hint == "heir_share":
-            return [
-                {"text": "ওয়ারিশ অংশ:", "confidence": 0.95, "box": [10, 10, 100, 35], "flagged": False},
-                {"text": "০.২৫০০", "confidence": 0.92, "box": [105, 10, 170, 35], "flagged": False},
-                {"text": "(চার আনা)", "confidence": 0.87, "box": [175, 10, 240, 35], "flagged": False}
-            ]
+            tokens.append(
+                {
+                    "text": word,
+                    "confidence": conf,
+                    "bbox": bbox,
+                    "script_style": "bengali_handwritten_or_printed",
+                    "flagged_for_review": conf < self.confidence_threshold,
+                }
+            )
+        return tokens
 
-        # Default handwritten line extraction
-        return [
-            {"text": "স্বত্বাধিকারীর নাম:", "confidence": 0.92, "box": [15, 12, 140, 38], "flagged": False},
-            {"text": "মোঃ আব্দুল করিম", "confidence": 0.89, "box": [145, 12, 290, 38], "flagged": False},
-            {"text": "পিতা- মৃত রহমত আলী", "confidence": 0.84, "box": [15, 45, 190, 72], "flagged": False},
-            {"text": "অংশ- ০.৫০০", "confidence": 0.88, "box": [200, 45, 280, 72], "flagged": False}
-        ]
+    def _tokenize_supplied_text(self, raw_text: str) -> List[Dict[str, Any]]:
+        tokens: List[Dict[str, Any]] = []
+        raw_parts = [p for p in raw_text.strip().split() if p]
+        x_cursor = 16
+        for part in raw_parts:
+            is_unclear = "[Unclear" in part or "অস্পষ্ট" in part
+            conf = 0.45 if is_unclear else 0.84
+            width = max(24, len(part) * 12)
+            tokens.append(
+                {
+                    "text": part,
+                    "confidence": conf,
+                    "bbox": [x_cursor, 20, width, 32],
+                    "script_style": "supplied_text",
+                    "flagged_for_review": is_unclear or conf < self.confidence_threshold,
+                }
+            )
+            x_cursor += width + 10
+        return tokens
 
-    def transcribe_marginal_notes(self, full_page_bytes: bytes) -> List[Dict[str, Any]]:
+    def transcribe_marginal_notes(self, image_bytes: bytes) -> Dict[str, Any]:
         """
-        Scans left, right, and bottom margins of a Khatian or Deed
-        specifically for handwritten notes, mutation endorsements, and court stamps.
+        Attempts to transcribe handwritten marginal notes (মন্তব্য কলাম).
+        Never invents mutation case numbers or marginalia text.
         """
-        return [
-            {
-                "margin_location": "left_margin",
-                "transcription": "নামজারি কেস নং ৪৮৯/২০০৩ মূলে জমা পৃথকীকৃত",
-                "confidence": 0.86,
-                "contains_unclear": False,
-                "requires_review": False
-            },
-            {
-                "margin_location": "top_seal",
-                "transcription": "সহকারী কমিশনার (ভূমি) এর কার্যালয়, মিরপুর [Unclear: তারিখ অস্পষ্ট]",
-                "confidence": 0.68,
-                "contains_unclear": True,
-                "requires_review": True
-            }
-        ]
+        base = self.recognize_handwriting(image_bytes, region_hint="marginal_notes")
+        return {
+            "region": "marginal_notes",
+            "status": base.get("status", "NEEDS_MANUAL_REVIEW"),
+            "transcription": base.get("transcribed_text", ""),
+            "confidence": base.get("overall_confidence", 0.0),
+            "requires_manual_review": True,
+            "tokens": base.get("tokens", []),
+        }

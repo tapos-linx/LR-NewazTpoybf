@@ -2,34 +2,72 @@ name: LR-NewazTpoybf CI Pipeline
 
 on:
   push:
-    branches: [ main, develop, 'feat/**', 'release/**' ]
+    branches: [ "main", "master", "feat/**", "fix/**" ]
   pull_request:
-    branches: [ main ]
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
-  backend-test:
-    runs-on: ubuntu-latest
+  backend-verification:
+    name: FastAPI & Forensic Intelligence Verification
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Python
+      - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: '3.11'
-          cache: 'pip'
+          python-version: "3.11"
+          cache: "pip"
 
-      - name: Install Backend Dependencies
+      - name: Install Ubuntu 24.04 Native Dependencies (libgl1 & Tesseract Bengali)
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libgl1 \
+            libglib2.0-0 \
+            tesseract-ocr \
+            tesseract-ocr-ben \
+            tesseract-ocr-eng
+          tesseract --version
+          tesseract --list-langs
+
+      - name: Install Python Dependencies
         run: |
           python -m pip install --upgrade pip
-          if [ -f backend/requirements.txt ]; then pip install -r backend/requirements.txt; fi
+          pip install -r backend/requirements.txt
+          pip install pytest httpx flake8
 
-      - name: Run Backend Syntax and Lint Check
+      - name: Run Python Syntax & Lint Checks
         run: |
-          python -m py_compile backend/main.py
+          flake8 backend ai --count --select=E9,F63,F7,F82 --show-source --statistics
 
-  android-build:
-    runs-on: ubuntu-latest
+      - name: Execute Python Forensic Unit & Integration Suite (pytest)
+        run: |
+          PYTHONPATH=. pytest backend/tests -v --junitxml=backend-test-results.xml
+
+      - name: Write Backend Job Summary
+        if: always()
+        run: |
+          echo "### FastAPI & Forensic AI Verification Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Ubuntu Native Packages**: \`libgl1\`, \`libglib2.0-0\`, \`tesseract-ocr-ben\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Test Suite**: \`backend/tests/test_forensic_platform.py\`" >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload Backend Test Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-pytest-report
+          path: backend-test-results.xml
+          if-no-files-found: warn
+
+  android-verification:
+    name: Android Unit/Robolectric Tests, Lint & Debug APK
+    runs-on: ubuntu-24.04
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
@@ -37,24 +75,69 @@ jobs:
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
+          distribution: "temurin"
+          java-version: "17"
 
-      - name: Cache Gradle Packages
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.gradle/caches
-            ~/.gradle/wrapper
-          key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
-          restore-keys: |
-            ${{ runner.os }}-gradle-
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
 
-      - name: Build Android Debug APK
-        run: gradle assembleDebug --stacktrace
+      - name: Materialize Android Debug Keystore for Clean CI Runner
+        run: |
+          if [ ! -f debug.keystore ]; then
+            if [ -f debug.keystore.base64 ]; then
+              base64 -d debug.keystore.base64 > debug.keystore
+            else
+              keytool -genkeypair -v \
+                -keystore debug.keystore \
+                -storepass android \
+                -alias androiddebugkey \
+                -keypass android \
+                -keyalg RSA \
+                -keysize 2048 \
+                -validity 10000 \
+                -dname "CN=Android Debug,O=Android,C=US"
+            fi
+          fi
+          test -s debug.keystore
 
-      - name: Upload APK Artifact
+      - name: Execute Android Unit & Robolectric Tests
+        run: gradle :app:testDebugUnitTest --stacktrace
+
+      - name: Assemble Debug APK
+        run: gradle :app:assembleDebug --stacktrace
+
+      - name: Generate Debug APK SHA-256 Checksum
+        run: |
+          sha256sum app/build/outputs/apk/debug/*.apk > app/build/outputs/apk/debug/SHA256SUMS.txt
+          cat app/build/outputs/apk/debug/SHA256SUMS.txt
+
+      - name: Write Android Job Summary
+        if: always()
+        run: |
+          echo "### Android Build & Robolectric Verification Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Unit & Robolectric Task**: \`:app:testDebugUnitTest\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Debug APK Task**: \`:app:assembleDebug\`" >> $GITHUB_STEP_SUMMARY
+          if [ -f app/build/outputs/apk/debug/SHA256SUMS.txt ]; then
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+            cat app/build/outputs/apk/debug/SHA256SUMS.txt >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload Android Test Reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: android-unit-test-reports
+          path: |
+            app/build/reports/tests/testDebugUnitTest/
+            app/build/test-results/testDebugUnitTest/
+          if-no-files-found: warn
+
+      - name: Upload Debug APK & Checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: newaz-lrecord-debug-apk
+          path: |
+            app/build/outputs/apk/debug/*.apk
+            app/build/outputs/apk/debug/SHA256SUMS.txt
+          if-no-files-found: error

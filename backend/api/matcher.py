@@ -1,62 +1,61 @@
 """
-FastAPI Router for Warishnama Inheritance Matching Engine.
-Cross-references heirs against CS, SA, RS, and BS khatians with 6 evidence tiers.
+API Router for Warish (Inheritance) Certificate & Historical Survey Chain Reconciliation.
+Never invents fallback survey records when none are provided in the request.
 """
 
-from fastapi import APIRouter, HTTPException
-from typing import Dict, Any, List, Optional
-from pydantic import BaseModel
-from ai.matcher.inheritance_matcher import InheritanceMatcher
+from __future__ import annotations
 
-router = APIRouter(prefix="/api/v1/matcher", tags=["Inheritance Matcher"])
-matcher = InheritanceMatcher()
+from typing import Any, Dict, List, Optional
+from backend.compat import APIRouter, BaseModel, Field
 
-class HeirModel(BaseModel):
+from ai.matcher.inheritance_matcher import InheritancePlotMatcher
+
+router = APIRouter()
+matcher = InheritancePlotMatcher()
+
+
+class HeirEntry(BaseModel):
     name: str
-    father_or_husband: Optional[str] = None
-    relationship: str
-    share: float
+    relation: str
+    share: float = Field(..., ge=0.0, le=1.0)
+    nid: Optional[str] = None
 
-class WarishPayload(BaseModel):
+
+class WarishCertificateInput(BaseModel):
+    certificate_no: str
     deceased_name: str
     father_name: Optional[str] = None
-    mouza: str
-    khatian_no: Optional[str] = None
-    target_dags: List[str]
-    heirs: List[HeirModel]
-    survey_records: Optional[List[Dict[str, Any]]] = None
+    mouza: Optional[str] = None
+    heirs: List[HeirEntry]
 
-@router.post("/cross-match")
-async def cross_match_inheritance(payload: WarishPayload):
-    """
-    Executes cross-matching between Warish certificate and survey records.
-    Returns 6 evidence tiers and hissa balance check.
-    """
-    warish_data = {
-        "deceased_name": payload.deceased_name,
-        "father_name": payload.father_name,
-        "mouza": payload.mouza,
-        "target_dags": payload.target_dags,
-        "heirs": [h.dict() for h in payload.heirs]
-    }
-    
-    surveys = payload.survey_records or [
-        {"survey_type": "CS", "owner_name": payload.deceased_name, "khatian_no": "104", "mouza": payload.mouza},
-        {"survey_type": "RS", "owner_name": payload.heirs[0].name if payload.heirs else "", "khatian_no": "512", "mouza": payload.mouza}
-    ]
 
-    result = matcher.match_warish_to_surveys(warish_data, surveys)
-    return result
+class SurveyOwnerInput(BaseModel):
+    name: str
+    father_name: Optional[str] = None
+    share: float = Field(..., ge=0.0, le=1.0)
 
-@router.get("/evidence-tiers")
-async def get_evidence_tiers():
-    return {
-        "evidence_tiers": [
-            {"tier": "VERIFIED", "code": 1, "description": "Unbroken chain of title, matching Dag/Khatian & heirs confirmed across surveys."},
-            {"tier": "CORROBORATED", "code": 2, "description": "Secondary confirmation via deed, mutation or registered endorsements."},
-            {"tier": "PROBABLE", "code": 3, "description": "Name variant match (e.g. Md. vs Mohammad) with aligned area & mouza."},
-            {"tier": "POSSIBLE", "code": 4, "description": "Partial match with unverified lineage or missing supporting deed."},
-            {"tier": "RECORD GAP", "code": 5, "description": "Missing intermediate survey (e.g. CS present, RS present, SA missing)."},
-            {"tier": "CONTRADICTORY", "code": 6, "description": "Conflicting owners, total hissa exceeds 1.000 / 16 anna, or overlapping claims."}
-        ]
-    }
+
+class SurveyRecordInput(BaseModel):
+    survey_type: str = Field(..., description="CS, SA, RS, BS, or MUTATION")
+    khatian_no: str
+    dag_no: str
+    mouza: Optional[str] = None
+    total_area_decimals: Optional[float] = Field(None, ge=0.0)
+    owners: List[SurveyOwnerInput]
+
+
+class ReconciliationRequest(BaseModel):
+    warish_certificate: WarishCertificateInput
+    survey_records: List[SurveyRecordInput] = Field(default_factory=list)
+    human_verified: bool = Field(False, description="True only when a human reviewer has verified source documents")
+
+
+@router.post("/reconcile", summary="Reconcile Warish Certificate with CS/SA/RS/BS Survey Khatians")
+async def reconcile_warish_and_surveys(payload: ReconciliationRequest) -> Dict[str, Any]:
+    cert_dict = payload.warish_certificate.model_dump()
+    records_list = [r.model_dump() for r in payload.survey_records]
+    return matcher.reconcile_inheritance_chain(
+        cert_dict,
+        records_list,
+        human_verified=payload.human_verified,
+    )
