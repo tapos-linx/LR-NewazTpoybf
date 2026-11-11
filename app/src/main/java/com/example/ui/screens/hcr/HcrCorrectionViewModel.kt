@@ -5,7 +5,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.domain.hcr.BanglaHcrEngine
 import com.example.domain.hcr.HcrContextCategory
-import com.example.domain.hcr.HcrToken
 import com.example.domain.hcr.HcrTranscriptionResult
 import com.example.domain.hcr.MarginalNoteItem
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,27 +15,14 @@ import kotlinx.coroutines.launch
 
 data class HcrScreenUiState(
     val currentResult: HcrTranscriptionResult = HcrTranscriptionResult(
-        originalText = "মৃত আব্দুল বারিক পিতা- হাজী জমিরুদ্দিন শেখ [Unclear: ঠিকানা অস্পষ্ট]",
-        confidence = 0.74f,
+        originalText = "",
+        confidence = 0.0f,
         requiresManualReview = true,
         contextCategory = HcrContextCategory.OWNER_NAME
     ),
-    val editingText: String = "মৃত আব্দুল বারিক পিতা- হাজী জমিরুদ্দিন শেখ [Unclear: ঠিকানা অস্পষ্ট]",
+    val editingText: String = "",
     val editorNotes: String = "",
-    val marginalNotes: List<MarginalNoteItem> = listOf(
-        MarginalNoteItem(
-            marginLocation = "বাম প্রান্ত (Left Margin)",
-            text = "নামজারি কেস নং ৩৪০/১৯৯৮ অনুযায়ী জমা খারিজ মঞ্জুর",
-            confidence = 0.88f,
-            isUnclear = false
-        ),
-        MarginalNoteItem(
-            marginLocation = "শীর্ষ সিলমোহর (Top Seal)",
-            text = "সহকারী কমিশনার (ভূমি) এর কার্যালয় [Unclear: তারিখ অস্পষ্ট]",
-            confidence = 0.62f,
-            isUnclear = true
-        )
-    ),
+    val marginalNotes: List<MarginalNoteItem> = emptyList(),
     val showSuccessSnackbar: Boolean = false,
     val snackbarMessage: String = "",
     val selectedCategory: HcrContextCategory = HcrContextCategory.OWNER_NAME
@@ -49,14 +35,14 @@ class HcrCorrectionViewModel(application: Application) : AndroidViewModel(applic
     val uiState: StateFlow<HcrScreenUiState> = _uiState.asStateFlow()
 
     init {
-        loadSampleCategory(HcrContextCategory.OWNER_NAME)
+        loadCategoryContext(HcrContextCategory.OWNER_NAME)
     }
 
     fun selectCategory(category: HcrContextCategory) {
-        loadSampleCategory(category)
+        loadCategoryContext(category)
     }
 
-    private fun loadSampleCategory(category: HcrContextCategory) {
+    private fun loadCategoryContext(category: HcrContextCategory) {
         val result = engine.processHandwrittenCrop(null, null, category)
         _uiState.update {
             it.copy(

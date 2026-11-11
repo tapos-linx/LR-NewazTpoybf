@@ -1,6 +1,6 @@
 package com.example.domain.atlas
 
-import java.util.UUID
+import com.example.data.local.entity.LandDocumentEntity
 
 /**
  * Historical Property Atlas & Forensic Chain Reconstruction Engine.
@@ -50,54 +50,43 @@ data class DagSplitAnalysis(
 class AtlasTimelineEngine {
 
     /**
-     * Builds a forensic chain-of-title timeline for a specific plot and lineage.
+     * Builds a forensic chain-of-title timeline from genuine persisted land records.
+     * Enforces anti-hallucination rules: returns empty list when no matching records exist.
      */
     fun buildHistoricalTimeline(
         mouza: String,
-        baseCsDag: String
+        baseCsDag: String,
+        records: List<LandDocumentEntity> = emptyList()
     ): List<AtlasChainNode> {
-        return listOf(
-            AtlasChainNode(
-                era = SurveyEra.CS,
-                khatianNo = "১০৪",
-                dagNo = baseCsDag,
-                owners = listOf("মরহুম হাজী জমিরুদ্দিন শেখ"),
-                areaDecimals = 50.0,
-                relationshipNotes = "সি এস রেকর্ডীয় মূল ভূস্বামী (মুকররী স্বত্ব)",
-                eventType = ChainEventType.ORIGIN,
-                childDagNumbers = listOf("৪১২")
-            ),
-            AtlasChainNode(
-                era = SurveyEra.SA,
-                khatianNo = "৩১৮",
-                dagNo = "৪১২",
-                owners = listOf("আব্দুল বারিক", "আব্দুল করিম"),
-                areaDecimals = 50.0,
-                relationshipNotes = "পিতার মৃত্যুর পর দুই পুত্রের নামে ৫০% হারে স্টেট একুইজিশন রেকর্ড",
-                eventType = ChainEventType.INHERITANCE,
-                childDagNumbers = listOf("৮১৫/১", "৮১৫/২")
-            ),
-            AtlasChainNode(
-                era = SurveyEra.RS,
-                khatianNo = "৫১২",
-                dagNo = "৮১৫/১",
-                owners = listOf("আব্দুল বারিক"),
-                areaDecimals = 25.0,
-                relationshipNotes = "আপোষ বন্টননামা ও রিভিশনাল সার্ভেতে সাবেক ৪১২ দাগ বিভক্ত হইয়া ৮১৫/১ ও ৮১৫/২ দাগ সৃষ্টি",
-                eventType = ChainEventType.DAG_SPLIT,
-                childDagNumbers = listOf("১২০৪")
-            ),
-            AtlasChainNode(
-                era = SurveyEra.BS,
-                khatianNo = "৭২০",
-                dagNo = "১২০৪",
-                owners = listOf("মোঃ রফিকুল ইসলাম (বারিকের ওয়ারিশ)"),
-                areaDecimals = 25.0,
-                relationshipNotes = "সিটি জরিপে চূড়ান্ত প্রচার ও হাল দখল বহাল",
-                eventType = ChainEventType.MUTATION,
-                isContinuityVerified = true
-            )
-        )
+        if (records.isEmpty()) return emptyList()
+
+        val matching = records.filter { doc ->
+            (mouza.isBlank() || doc.primaryMouza?.contains(mouza, ignoreCase = true) == true) &&
+            (doc.primaryDagNo == baseCsDag || doc.extractedDataJson?.contains(baseCsDag) == true)
+        }
+
+        if (matching.isEmpty()) return emptyList()
+
+        val nodes = mutableListOf<AtlasChainNode>()
+        for (era in listOf(SurveyEra.CS, SurveyEra.SA, SurveyEra.RS, SurveyEra.BS)) {
+            val eraDoc = matching.find {
+                it.classifiedType.equals(era.code, ignoreCase = true) || it.sourceCategory.equals(era.code, ignoreCase = true)
+            }
+            if (eraDoc != null) {
+                nodes.add(
+                    AtlasChainNode(
+                        era = era,
+                        khatianNo = eraDoc.primaryKhatianNo ?: "অনির্দিষ্ট",
+                        dagNo = eraDoc.primaryDagNo ?: baseCsDag,
+                        owners = listOfNotNull(eraDoc.ownersSummary?.ifBlank { null } ?: "মালিক তথ্য অনুপস্থিত"),
+                        areaDecimals = eraDoc.primaryAreaDecimals?.toDoubleOrNull() ?: 0.0,
+                        relationshipNotes = "${era.nameBn} মূল নথিকৃত রেকর্ড",
+                        eventType = if (nodes.isEmpty()) ChainEventType.ORIGIN else ChainEventType.MUTATION
+                    )
+                )
+            }
+        }
+        return nodes
     }
 
     /**

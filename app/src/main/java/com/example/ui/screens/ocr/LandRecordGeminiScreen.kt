@@ -93,20 +93,7 @@ fun LandRecordGeminiScreen(
                         )
                     }
                 },
-                actions = {
-                    IconButton(
-                        onClick = {
-                            val sample = createSampleBrahmanbariaKhatianBitmap()
-                            viewModel.processLandRecordBitmap(sample, "Sample Brahmanbaria CS Khatian")
-                        },
-                        modifier = Modifier.testTag("load_sample_khatian_button")
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Description,
-                            contentDescription = "Load Sample Land Record"
-                        )
-                    }
-                },
+                actions = {},
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.surfaceColorAtElevation(3.dp)
                 )
@@ -207,12 +194,9 @@ fun LandRecordGeminiScreen(
                             onClick = {
                                 selectedBitmap?.let { bmp ->
                                     viewModel.processLandRecordBitmap(bmp)
-                                } ?: run {
-                                    val sample = createSampleBrahmanbariaKhatianBitmap()
-                                    viewModel.processLandRecordBitmap(sample)
                                 }
                             },
-                            enabled = uiState !is LandRecordGeminiUiState.Loading,
+                            enabled = selectedBitmap != null && uiState !is LandRecordGeminiUiState.Loading,
                             modifier = Modifier
                                 .weight(1f)
                                 .testTag("extract_ocr_button")
@@ -640,44 +624,4 @@ private fun ContentBoxWithCopy(
             )
         }
     }
-}
-
-/**
- * Creates a synthetic Brahmanbaria CS Khatian sample bitmap for instant offline previewing and testing.
- */
-fun createSampleBrahmanbariaKhatianBitmap(): Bitmap {
-    val bitmap = Bitmap.createBitmap(800, 600, Bitmap.Config.ARGB_8888)
-    val canvas = Canvas(bitmap)
-    canvas.drawColor(Color.rgb(250, 248, 235)) // Vintage land parchment tint
-
-    val textPaint = Paint().apply {
-        color = Color.BLACK
-        textSize = 28f
-        isAntiAlias = true
-    }
-
-    val headerPaint = Paint().apply {
-        color = Color.rgb(120, 20, 20)
-        textSize = 34f
-        isFakeBoldText = true
-        isAntiAlias = true
-    }
-
-    val borderPaint = Paint().apply {
-        color = Color.rgb(80, 80, 80)
-        strokeWidth = 3f
-        style = Paint.Style.STROKE
-    }
-
-    canvas.drawRect(20f, 20f, 780f, 580f, borderPaint)
-    canvas.drawText("সি এস খতিয়ান (ক্যাডাস্ট্রাল সার্ভে - ১৮৯৮)", 140f, 70f, headerPaint)
-    canvas.drawText("জেলা: ব্রাহ্মণবাড়িয়া | থানা: নবীনগর | মৌজা: গোয়ালী", 60f, 130f, textPaint)
-    canvas.drawText("জে. এল. নং: ১২৪ | খতিয়ান নং: ৪০৩ | সাবেক দাগ: ১০২, ১০৫", 60f, 180f, textPaint)
-    canvas.drawText("রায়ত / মালিক: ফিরুজ মিয়া, পিতা: সিরাজ আলী", 60f, 240f, textPaint)
-    canvas.drawText("অংশ / হিস্যা: /৪ আনা (০.২৫০০) | জমির শ্রেণি: ধানী ও নাল", 60f, 290f, textPaint)
-    canvas.drawText("মোট জমির পরিমাণ: ১ একর ২০ শতক (1.20 Acres)", 60f, 340f, textPaint)
-    canvas.drawText("[SEAL: Sub-Registry Office, Nabinagar - Verified]", 60f, 410f, textPaint)
-    canvas.drawText("প্রান্তীয় নোট: নামজারি কেস নং ২৪/২০০৯ অনুযায়ী জমা খারিজ", 60f, 470f, textPaint)
-
-    return bitmap
 }

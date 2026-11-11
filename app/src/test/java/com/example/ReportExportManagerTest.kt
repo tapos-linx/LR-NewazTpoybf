@@ -81,15 +81,15 @@ class ReportExportManagerTest {
 
         sampleData = LandRecordData(
             recordType = LandRecordType.CS,
-            khatianNo = FieldWithConfidence("৪০৩", ConfidenceLevel.VERIFIED, "খতিয়ান", 1),
-            dagNo = FieldWithConfidence("১২৫০", ConfidenceLevel.VERIFIED, "দাগ", 1),
-            district = FieldWithConfidence("ঢাকা", ConfidenceLevel.VERIFIED, "জেলা", 1),
-            upazilaThana = FieldWithConfidence("কেরানীগঞ্জ", ConfidenceLevel.VERIFIED, "উপজেলা", 1),
-            mouza = FieldWithConfidence("শুভাঢ্যা", ConfidenceLevel.VERIFIED, "মৌজা", 1),
-            jlNo = FieldWithConfidence("৪৫", ConfidenceLevel.VERIFIED, "জেএল", 1),
-            landClass = FieldWithConfidence("নাল", ConfidenceLevel.VERIFIED, "শ্রেণি", 1),
-            areaDecimals = FieldWithConfidence("৮৫", ConfidenceLevel.VERIFIED, "শতক", 1),
-            areaAcres = FieldWithConfidence("০.৮৫", ConfidenceLevel.VERIFIED, "একর", 1),
+            khatianNo = FieldWithConfidence(value = "৪০৩", confidence = ConfidenceLevel.VERIFIED, rawOcrMatch = "খতিয়ান", evidencePage = 1),
+            dagNo = FieldWithConfidence(value = "১২৫০", confidence = ConfidenceLevel.VERIFIED, rawOcrMatch = "দাগ", evidencePage = 1),
+            district = FieldWithConfidence(value = "ঢাকা", confidence = ConfidenceLevel.VERIFIED, rawOcrMatch = "জেলা", evidencePage = 1),
+            upazilaThana = FieldWithConfidence(value = "কেরানীগঞ্জ", confidence = ConfidenceLevel.VERIFIED, rawOcrMatch = "উপজেলা", evidencePage = 1),
+            mouza = FieldWithConfidence(value = "শুভাঢ্যা", confidence = ConfidenceLevel.VERIFIED, rawOcrMatch = "মৌজা", evidencePage = 1),
+            jlNo = FieldWithConfidence(value = "৪৫", confidence = ConfidenceLevel.VERIFIED, rawOcrMatch = "জেএল", evidencePage = 1),
+            landClass = FieldWithConfidence(value = "নাল", confidence = ConfidenceLevel.VERIFIED, rawOcrMatch = "শ্রেণি", evidencePage = 1),
+            areaDecimals = FieldWithConfidence(value = "৮৫", confidence = ConfidenceLevel.VERIFIED, rawOcrMatch = "শতক", evidencePage = 1),
+            areaAcres = FieldWithConfidence(value = "০.৮৫", confidence = ConfidenceLevel.VERIFIED, rawOcrMatch = "একর", evidencePage = 1),
             owners = listOf(
                 OwnerRecord(
                     serial = 1,
@@ -264,6 +264,25 @@ class ReportExportManagerTest {
         val missingReport = String(entries["MISSING_SOURCE_FILES_REPORT.txt"]!!, Charsets.UTF_8)
         assertTrue(missingReport.contains("doc-12345"))
     }
+
+    @Test
+    fun testPdfIntegrityValidatorDirectly() {
+        val validPdfBytes = ReportExportManager.buildFormattedPdfBytes(sampleDoc, samplePages, sampleData)
+        val validationResult = com.example.domain.export.PdfIntegrityValidator.validate(validPdfBytes)
+
+        assertTrue("Validation must pass for formatted dossier", validationResult.isValid)
+        assertTrue("Header must be valid", validationResult.hasValidHeader)
+        assertTrue("Trailer must be valid", validationResult.hasValidTrailer)
+        assertTrue("Bengali font/encoding must be detected", validationResult.isBengaliFontOrEncodingEmbedded)
+        assertTrue("Failure reasons must be empty", validationResult.failureReasons.isEmpty())
+
+        // Test invalid PDF rejection
+        val corruptedBytes = "Not a PDF document".toByteArray()
+        val corruptResult = com.example.domain.export.PdfIntegrityValidator.validate(corruptedBytes)
+        org.junit.Assert.assertFalse("Corrupted byte stream must fail validation", corruptResult.isValid)
+        assertTrue("Failure reasons must describe the failure", corruptResult.failureReasons.isNotEmpty())
+    }
 }
+
 
 

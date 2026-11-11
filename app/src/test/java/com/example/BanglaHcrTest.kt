@@ -18,7 +18,7 @@ class BanglaHcrTest {
     fun testHcrOwnerNameTokenizationAndConfidence() {
         val result = engine.processHandwrittenCrop(
             cropBitmap = null,
-            rawSampleText = "মৃত আব্দুল বারিক পিতা- হাজী জমিরুদ্দিন শেখ [Unclear: ঠিকানা অস্পষ্ট]",
+            rawInputText = "মৃত আব্দুল বারিক পিতা- হাজী জমিরুদ্দিন শেখ [Unclear: ঠিকানা অস্পষ্ট]",
             category = HcrContextCategory.OWNER_NAME
         )
 
@@ -36,7 +36,7 @@ class BanglaHcrTest {
     fun testManualCorrectionPreservesZeroDataLoss() {
         val original = engine.processHandwrittenCrop(
             cropBitmap = null,
-            rawSampleText = "সাবেক দাগ নং ৪১২, হাল দাগ নং ৮১৫ [Unclear: কাটা]",
+            rawInputText = "সাবেক দাগ নং ৪১২, হাল দাগ নং ৮১৫ [Unclear: কাটা]",
             category = HcrContextCategory.DAG_NUMBER
         )
 
@@ -57,9 +57,9 @@ class BanglaHcrTest {
     @Test
     fun testHcrContextCategories() {
         for (category in HcrContextCategory.values()) {
-            val result = engine.processHandwrittenCrop(null, null, category)
+            val result = engine.processHandwrittenCrop(null, "নথি পরীক্ষা", category)
             assertNotNull(result.originalText)
-            assertTrue("Sample text must not be blank", result.originalText.isNotBlank())
+            assertTrue("Input text must not be blank", result.originalText.isNotBlank())
             assertEquals(category, result.contextCategory)
         }
     }

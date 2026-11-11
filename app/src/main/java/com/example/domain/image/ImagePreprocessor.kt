@@ -139,7 +139,7 @@ object ImagePreprocessor {
         val width = src.width
         val height = src.height
 
-        // Downsample for threshold calculation if very large to prevent memory overhead
+        // Downscale for threshold calculation if very large to prevent memory overhead
         val maxDim = 1800
         val scale = if (width > maxDim || height > maxDim) {
             min(maxDim.toFloat() / width, maxDim.toFloat() / height)

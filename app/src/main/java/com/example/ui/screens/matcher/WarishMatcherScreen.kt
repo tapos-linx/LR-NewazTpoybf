@@ -95,12 +95,12 @@ fun WarishMatcherScreen(
                 },
                 actions = {
                     IconButton(
-                        onClick = { viewModel.resetToSample() },
-                        modifier = Modifier.testTag("btn_reset_warish_sample")
+                        onClick = { viewModel.runMatching() },
+                        modifier = Modifier.testTag("btn_rerun_warish_matching")
                     ) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
-                            contentDescription = "রিসেট করুন",
+                            contentDescription = "পুনরায় যাচাই করুন",
                             tint = MaterialTheme.colorScheme.onPrimary
                         )
                     }
@@ -210,6 +210,32 @@ fun WarishMatcherTabContent(
         // Legal disclaimer reminder
         item {
             LegalDisclaimerBanner()
+        }
+
+        if (warish == null) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth().testTag("empty_warish_card"),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                ) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth().padding(28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Icon(Icons.Default.Group, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.primary)
+                        Text("কোনো ওয়ারিশ সনদ পাওয়া যায়নি", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text("জরিপ খতিয়ানের সাথে মিলকরণের জন্য একটি ওয়ারিশ সনদ যোগ করুন বা নথি ইমপোর্ট করুন।", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Button(onClick = onAddHeirClick, modifier = Modifier.testTag("btn_create_first_warish")) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("ওয়ারিশ সনদ যোগ করুন")
+                        }
+                    }
+                }
+            }
+            return@LazyColumn
         }
 
         // Permanent Major Warish Certificate Selector Card

@@ -16,11 +16,11 @@ class BatchExtractionWorker(
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val repository = LandRecordRepository(applicationContext)
 
-        setProgress(workDataOf("status" to "ইনdexing records...", "progress" to 10))
-
         try {
-            // Seed sample records if database is fresh
-            repository.seedInitialSampleRecordsIfEmpty()
+            setProgress(workDataOf("status" to "ইনdexing records...", "progress" to 10))
+
+            // Purge any legacy stale data if present
+            repository.purgeLegacyStaleRecords()
 
             setProgress(workDataOf("status" to "প্রক্রিয়াকরণ সম্পন্ন", "progress" to 100))
             Result.success()

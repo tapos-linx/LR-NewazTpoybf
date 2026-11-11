@@ -106,11 +106,17 @@ enum class ConfidenceLevel {
 
 /**
  * Field with confidence tracking and evidence reference.
+ * Strictly maintains evidence fidelity: null value means unreadable/unclear.
  */
 @JsonClass(generateAdapter = true)
 data class FieldWithConfidence(
-    val value: String = "",
+    val value: String? = null,
     val confidence: ConfidenceLevel = ConfidenceLevel.UNCERTAIN,
+    val numericConfidence: Float? = null, // nullable, null means unknown, never fabricated
+    val source: String = "TESSERACT", // TESSERACT | GEMINI | MANUAL
+    val status: String = "UNVERIFIED", // CONFIRMED | PROBABLE | CONFLICTED | UNVERIFIED
+    val sourceDocumentId: String? = null,
+    val pageNumber: Int = 1,
     val rawOcrMatch: String = "",
     val evidencePage: Int = 1,
     val userEdited: Boolean = false,
@@ -158,6 +164,8 @@ data class LandRecordData(
     val mutationCaseNo: FieldWithConfidence = FieldWithConfidence(),
     val owners: List<OwnerRecord> = emptyList(),
     val validationWarnings: List<String> = emptyList(),
+    val unclearFields: List<String> = emptyList(),
+    val rawModelResponse: String? = null,
     val isHissaValid: Boolean = true,
     val hissaTotalCalculated: Double = 0.0,
     val legalDisclaimerAcknowledged: Boolean = false

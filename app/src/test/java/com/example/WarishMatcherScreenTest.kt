@@ -7,7 +7,7 @@ import com.example.ui.screens.matcher.WarishMatcherTabContent
 import com.example.ui.screens.matcher.CadastralMapTabContent
 import com.example.ui.screens.matcher.ForensicAuditTabContent
 import com.example.ui.screens.matcher.WarishMatcherUiState
-import com.example.ui.screens.matcher.createDefaultWarish
+import com.example.fixtures.SyntheticTestData
 import com.example.ui.theme.NewazLandTheme
 import org.junit.Rule
 import org.junit.Test
@@ -24,9 +24,11 @@ class WarishMatcherScreenTest {
 
     @Test
     fun testWarishMatcherTabContentRendersCards() {
-        val warish = createDefaultWarish()
+        val warish = SyntheticTestData.createSyntheticDefaultWarish()
+        val majorWarishList = SyntheticTestData.createSyntheticMajorWarishList()
         val uiState = WarishMatcherUiState(
             currentWarish = warish,
+            majorWarishList = majorWarishList,
             selectedTab = 0
         )
 
@@ -54,9 +56,12 @@ class WarishMatcherScreenTest {
 
     @Test
     fun testCadastralMapTabRendersForensicBannerAndCanvas() {
-        val warish = createDefaultWarish()
+        val warish = SyntheticTestData.createSyntheticDefaultWarish()
         val detector = com.example.domain.gis.CadastralMapDetector()
-        val sheetData = detector.detectAndHighlightParcels(warish.targetDagNumbers)
+        val sheetData = detector.detectAndHighlightParcels(
+            targetDags = warish.targetDagNumbers,
+            baseParcels = SyntheticTestData.createSyntheticCadastralParcels()
+        )
 
         composeTestRule.setContent {
             NewazLandTheme {
@@ -77,7 +82,7 @@ class WarishMatcherScreenTest {
 
     @Test
     fun testForensicAuditTabRendersSummaryAndShareButton() {
-        val warish = createDefaultWarish()
+        val warish = SyntheticTestData.createSyntheticDefaultWarish()
         val matcher = com.example.domain.matcher.InheritanceMatcher()
         val report = matcher.matchWarishToSurveys(warish, emptyList())
 

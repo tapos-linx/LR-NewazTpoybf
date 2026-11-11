@@ -116,36 +116,34 @@ object ReportExportManager {
         sb.append("জরিপ/রেকর্ড ধরন: ").append(data.recordType.bengaliName).append("\n")
         sb.append("অবস্থা: ").append(doc.status).append(" (গড় নির্ভরযোগ্যতা: ").append(String.format(Locale.US, "%.1f%%", doc.overallConfidence)).append(")\n")
         sb.append("--------------------------------------------------------------------------------\n")
-        sb.append("১. ভৌগোলিক ও অবস্থান সংক্রান্ত তথ্য:\n")
-        sb.append("   • জেলা: ").append(data.district.value).append(" [").append(data.district.confidence).append("]\n")
-        sb.append("   • উপজেলা/থানা: ").append(data.upazilaThana.value).append(" [").append(data.upazilaThana.confidence).append("]\n")
-        sb.append("   • মৌজা: ").append(data.mouza.value).append(" [").append(data.mouza.confidence).append("]\n")
-        sb.append("   • জে. এল. নং: ").append(data.jlNo.value).append(" [").append(data.jlNo.confidence).append("]\n")
-        if (data.touziNo.value.isNotBlank()) {
+        sb.append("১. ভৌগোলিক ও জরিপ পরিচিতি (Geographic & Survey Metadata):\n")
+        sb.append("   • জেলা: ").append(data.district.value ?: "—").append(" [").append(data.district.confidence).append("]\n")
+        sb.append("   • উপজেলা/থানা: ").append(data.upazilaThana.value ?: "—").append(" [").append(data.upazilaThana.confidence).append("]\n")
+        sb.append("   • মৌজা: ").append(data.mouza.value ?: "—").append(" [").append(data.mouza.confidence).append("]\n")
+        sb.append("   • জে. এল. নং: ").append(data.jlNo.value ?: "—").append(" [").append(data.jlNo.confidence).append("]\n")
+        if (data.touziNo.value?.isNotBlank() == true) {
             sb.append("   • তৌজি নং: ").append(data.touziNo.value).append("\n")
         }
         sb.append("--------------------------------------------------------------------------------\n")
-        sb.append("২. খতিয়ান ও দাগের বিস্তারিত তথ্য:\n")
-        sb.append("   • খতিয়ান নং: ").append(data.khatianNo.value).append(" [").append(data.khatianNo.confidence).append("]\n")
-        if (data.formerKhatianNo.value.isNotBlank()) {
+        sb.append("২. খতিয়ান, দাগ ও জমির পরিমাপ (Khatian, Dag & Land Area):\n")
+        sb.append("   • খতিয়ান নং: ").append(data.khatianNo.value ?: "—").append(" [").append(data.khatianNo.confidence).append("]\n")
+        if (data.formerKhatianNo.value?.isNotBlank() == true) {
             sb.append("   • সাবেক খতিয়ান নং: ").append(data.formerKhatianNo.value).append("\n")
         }
-        sb.append("   • দাগ নং: ").append(data.dagNo.value).append(" [").append(data.dagNo.confidence).append("]\n")
-        if (data.formerDagNo.value.isNotBlank()) {
+        sb.append("   • দাগ নং: ").append(data.dagNo.value ?: "—").append(" [").append(data.dagNo.confidence).append("]\n")
+        if (data.formerDagNo.value?.isNotBlank() == true) {
             sb.append("   • সাবেক দাগ নং: ").append(data.formerDagNo.value).append("\n")
         }
-        if (data.halDagNo.value.isNotBlank()) {
+        if (data.halDagNo.value?.isNotBlank() == true) {
             sb.append("   • হাল দাগ নং: ").append(data.halDagNo.value).append("\n")
         }
+        sb.append("   • শ্রেণি: ").append(data.landClass.value ?: "—").append(" [").append(data.landClass.confidence).append("]\n")
+        sb.append("   • অংশ / হিস্যা: ").append(data.landShareHissa.value ?: "—").append("\n")
+        sb.append("   • জমির পরিমাণ (একর): ").append(data.areaAcres.value ?: "—").append(" একর\n")
+        sb.append("   • জমির পরিমাণ (শতাংশ/শতক): ").append(data.areaDecimals.value ?: "—").append(" শতাংশ\n")
+        sb.append("   • বার্ষিক দাবি / খাজনা: ").append(data.annualRent.value ?: "—").append("\n")
         sb.append("--------------------------------------------------------------------------------\n")
-        sb.append("৩. জমির শ্রেণি ও পরিমাপ:\n")
-        sb.append("   • শ্রেণি: ").append(data.landClass.value).append(" [").append(data.landClass.confidence).append("]\n")
-        sb.append("   • অংশ / হিস্যা: ").append(data.landShareHissa.value).append("\n")
-        sb.append("   • জমির পরিমাণ (একর): ").append(data.areaAcres.value).append(" একর\n")
-        sb.append("   • জমির পরিমাণ (শতাংশ/শতক): ").append(data.areaDecimals.value).append(" শতাংশ\n")
-        sb.append("   • বার্ষিক দাবি / খাজনা: ").append(data.annualRent.value).append("\n")
-        sb.append("--------------------------------------------------------------------------------\n")
-        sb.append("৪. মালিক ও রায়তের বিবরণ:\n")
+        sb.append("৩. মালিকানা ও উত্তরাধিকারী হিস্যা (Owners & Shares):\n")
         if (data.owners.isEmpty()) {
             sb.append("   (মালিকের তথ্য পাওয়া যায়নি)\n")
         } else {
@@ -218,7 +216,7 @@ object ReportExportManager {
     ): String {
         val sb = StringBuilder()
         sb.append(LEGAL_DISCLAIMER_TEXT.trim()).append("\n\n")
-        sb.append("📋 বাংলাদেশ ভূমি রেকর্ড সামগ্রিক সারসংক্ষেপ প্রতিবেদন\n")
+        sb.append("📋 সামগ্রিক ভূমি রেকর্ড ডসিয়ার - বাংলাদেশ ভূমি রেকর্ড সারসংক্ষেপ\n")
         sb.append("মোট নথির সংখ্যা: ").append(records.size).append("\n")
         sb.append("তারিখ: ").append(SimpleDateFormat("dd MMMM yyyy, hh:mm a", Locale.getDefault()).format(Date())).append("\n")
         sb.append("================================================================================\n\n")
@@ -705,17 +703,17 @@ object ReportExportManager {
         drawTwoColumnRow("জরিপের ধরন", data.recordType.bengaliName, "ক্যাটাগরি", doc.sourceCategory)
         drawTwoColumnRow(
             "জেলা (District)",
-            data.district.value.ifBlank { doc.primaryDistrict ?: "—" },
+            (data.district.value ?: "").ifBlank { doc.primaryDistrict ?: "—" },
             "উপজেলা/থানা",
-            data.upazilaThana.value.ifBlank { doc.primaryUpazila ?: "—" }
+            (data.upazilaThana.value ?: "").ifBlank { doc.primaryUpazila ?: "—" }
         )
         drawTwoColumnRow(
             "মৌজা (Mouza)",
-            data.mouza.value.ifBlank { doc.primaryMouza ?: "—" },
+            (data.mouza.value ?: "").ifBlank { doc.primaryMouza ?: "—" },
             "জে. এল. নং (JL)",
-            data.jlNo.value.ifBlank { doc.primaryJlNo ?: "—" }
+            (data.jlNo.value ?: "").ifBlank { doc.primaryJlNo ?: "—" }
         )
-        drawTwoColumnRow("তৌজি নং", data.touziNo.value, "পৃষ্ঠা সংখ্যা", "${doc.pageCount.coerceAtLeast(1)} পৃষ্ঠা")
+        drawTwoColumnRow("তৌজি নং", data.touziNo.value ?: "—", "পৃষ্ঠা সংখ্যা", "${doc.pageCount.coerceAtLeast(1)} পৃষ্ঠা")
         y += 14f
 
         // 4. Section 2: Khatian, Dag & Land Measurements
@@ -724,29 +722,29 @@ object ReportExportManager {
         y += 18f
         drawTwoColumnRow(
             "খতিয়ান নং",
-            data.khatianNo.value.ifBlank { doc.primaryKhatianNo ?: "—" },
+            (data.khatianNo.value ?: "").ifBlank { doc.primaryKhatianNo ?: "—" },
             "সাবেক খতিয়ান",
-            data.formerKhatianNo.value
+            data.formerKhatianNo.value ?: "—"
         )
         drawTwoColumnRow(
             "দাগ নং (Dag)",
-            data.dagNo.value.ifBlank { doc.primaryDagNo ?: "—" },
+            (data.dagNo.value ?: "").ifBlank { doc.primaryDagNo ?: "—" },
             "সাবেক / হাল দাগ",
-            "${data.formerDagNo.value.ifBlank { "—" }} / ${data.halDagNo.value.ifBlank { "—" }}"
+            "${(data.formerDagNo.value ?: "").ifBlank { "—" }} / ${(data.halDagNo.value ?: "").ifBlank { "—" }}"
         )
         drawTwoColumnRow(
             "জমির শ্রেণি",
-            data.landClass.value.ifBlank { doc.primaryLandClass ?: "—" },
+            (data.landClass.value ?: "").ifBlank { doc.primaryLandClass ?: "—" },
             "অংশ / হিস্যা",
-            data.landShareHissa.value
+            data.landShareHissa.value ?: "—"
         )
         drawTwoColumnRow(
             "পরিমাণ (শতাংশ)",
-            "${data.areaDecimals.value.ifBlank { doc.primaryAreaDecimals ?: "—" }} শতাংশ",
+            "${(data.areaDecimals.value ?: "").ifBlank { doc.primaryAreaDecimals ?: "—" }} শতাংশ",
             "পরিমাণ (একর)",
-            "${data.areaAcres.value.ifBlank { "—" }} একর"
+            "${(data.areaAcres.value ?: "").ifBlank { "—" }} একর"
         )
-        drawTwoColumnRow("বার্ষিক খাজনা", data.annualRent.value, "যাচাই অবস্থা", doc.status)
+        drawTwoColumnRow("বার্ষিক খাজনা", data.annualRent.value ?: "—", "যাচাই অবস্থা", doc.status)
         y += 16f
 
         // 5. Section 3: Owners & Shares Table
@@ -975,10 +973,10 @@ object ReportExportManager {
                 canvas.drawText("${idx + 1}", colX[0] + 4f, y + 14f, valuePaint)
                 canvas.drawText(doc.title.take(22), colX[1] + 4f, y + 14f, valuePaint)
                 canvas.drawText(doc.classifiedType.take(7), colX[2] + 4f, y + 14f, valuePaint)
-                canvas.drawText((data.mouza.value.ifBlank { doc.primaryMouza ?: "—" }).take(11), colX[3] + 4f, y + 14f, valuePaint)
-                canvas.drawText((data.khatianNo.value.ifBlank { doc.primaryKhatianNo ?: "—" }).take(9), colX[4] + 4f, y + 14f, valuePaint)
-                canvas.drawText((data.dagNo.value.ifBlank { doc.primaryDagNo ?: "—" }).take(9), colX[5] + 4f, y + 14f, valuePaint)
-                canvas.drawText((data.areaDecimals.value.ifBlank { doc.primaryAreaDecimals ?: "—" }).take(12), colX[6] + 4f, y + 14f, valuePaint)
+                canvas.drawText(((data.mouza.value ?: "").ifBlank { doc.primaryMouza ?: "—" }).take(11), colX[3] + 4f, y + 14f, valuePaint)
+                canvas.drawText(((data.khatianNo.value ?: "").ifBlank { doc.primaryKhatianNo ?: "—" }).take(9), colX[4] + 4f, y + 14f, valuePaint)
+                canvas.drawText(((data.dagNo.value ?: "").ifBlank { doc.primaryDagNo ?: "—" }).take(9), colX[5] + 4f, y + 14f, valuePaint)
+                canvas.drawText(((data.areaDecimals.value ?: "").ifBlank { doc.primaryAreaDecimals ?: "—" }).take(12), colX[6] + 4f, y + 14f, valuePaint)
                 y += h
             }
             y += 20f
@@ -995,8 +993,8 @@ object ReportExportManager {
                     y + 14f,
                     labelPaint
                 )
-                val line1 = "জেলা: ${data.district.value.ifBlank { doc.primaryDistrict ?: "—" }} | উপজেলা: ${data.upazilaThana.value.ifBlank { doc.primaryUpazila ?: "—" }} | মৌজা: ${data.mouza.value.ifBlank { doc.primaryMouza ?: "—" }} (JL: ${data.jlNo.value.ifBlank { doc.primaryJlNo ?: "—" }})"
-                val line2 = "খতিয়ান নং: ${data.khatianNo.value.ifBlank { doc.primaryKhatianNo ?: "—" }} | দাগ নং: ${data.dagNo.value.ifBlank { doc.primaryDagNo ?: "—" }} | শ্রেণি: ${data.landClass.value.ifBlank { doc.primaryLandClass ?: "—" }} | পরিমাণ: ${data.areaDecimals.value.ifBlank { doc.primaryAreaDecimals ?: "—" }} শতাংশ"
+                val line1 = "জেলা: ${(data.district.value ?: "").ifBlank { doc.primaryDistrict ?: "—" }} | উপজেলা: ${(data.upazilaThana.value ?: "").ifBlank { doc.primaryUpazila ?: "—" }} | মৌজা: ${(data.mouza.value ?: "").ifBlank { doc.primaryMouza ?: "—" }} (JL: ${(data.jlNo.value ?: "").ifBlank { doc.primaryJlNo ?: "—" }})"
+                val line2 = "খতিয়ান নং: ${(data.khatianNo.value ?: "").ifBlank { doc.primaryKhatianNo ?: "—" }} | দাগ নং: ${(data.dagNo.value ?: "").ifBlank { doc.primaryDagNo ?: "—" }} | শ্রেণি: ${(data.landClass.value ?: "").ifBlank { doc.primaryLandClass ?: "—" }} | পরিমাণ: ${(data.areaDecimals.value ?: "").ifBlank { doc.primaryAreaDecimals ?: "—" }} শতাংশ"
                 val ownersStr = data.owners.joinToString(", ") { "${it.name} (${it.shareHissa})" }
                     .ifBlank { doc.ownersSummary ?: "অনুল্লেখিত" }
                 val line3 = "মালিকগণ: ${ownersStr.take(82)}"
@@ -1021,18 +1019,16 @@ object ReportExportManager {
     }
 
     /**
-     * Validates structural integrity of generated PDF bytes:
+     * Validates structural integrity of generated PDF bytes using [PdfIntegrityValidator]:
      * - Non-empty and starts with `%PDF-1.` header
      * - Contains `/Type /Catalog`, `/Type /Page`, `xref`, and `%%EOF` trailer
+     * - Verifies embedded Bengali font metadata / Unicode encoding
+     * - Confirms presence of mandatory structural landmarks and bookmarks
      */
     fun validatePdfIntegrity(pdfBytes: ByteArray): Boolean {
-        if (pdfBytes.size < 64) return false
-        val header = String(pdfBytes, 0, minOf(16, pdfBytes.size), Charsets.ISO_8859_1)
-        if (!header.startsWith("%PDF-1.")) return false
-        val tailStart = maxOf(0, pdfBytes.size - 512)
-        val tail = String(pdfBytes, tailStart, pdfBytes.size - tailStart, Charsets.ISO_8859_1)
-        return tail.contains("%%EOF")
+        return PdfIntegrityValidator.validate(pdfBytes).isValid
     }
+
 
     /**
      * Pure-Kotlin PDF 1.4 generator used as a deterministic fallback when native Skia PdfDocument
@@ -1264,9 +1260,9 @@ object ReportExportManager {
             <div class="section-title">১. নথির সাধারণ পরিচিতি (Metadata)</div>
             <table>
                 <tr><th>নথির শিরোনাম</th><td>${doc.title}</td><th>জরিপের ধরন</th><td>${doc.classifiedType ?: "অনির্ধারিত"}</td></tr>
-                <tr><th>জেলা</th><td>${data.district.value.ifBlank { doc.primaryDistrict ?: "—" }}</td><th>উপজেলা/থানা</th><td>${data.upazilaThana.value.ifBlank { doc.primaryUpazila ?: "—" }}</td></tr>
-                <tr><th>মৌজা ও জে.এল</th><td>${data.mouza.value.ifBlank { doc.primaryMouza ?: "—" }} (JL: ${data.jlNo.value.ifBlank { doc.primaryJlNo ?: "—" }})</td><th>খতিয়ান নম্বর</th><td>${data.khatianNo.value.ifBlank { doc.primaryKhatianNo ?: "—" }}</td></tr>
-                <tr><th>দাগ নম্বর</th><td>${data.dagNo.value.ifBlank { doc.primaryDagNo ?: "—" }}</td><th>জমির পরিমাণ</th><td>${data.areaDecimals.value.ifBlank { doc.primaryAreaDecimals ?: "—" }} শতাংশ</td></tr>
+                <tr><th>জেলা</th><td>${(data.district.value ?: "").ifBlank { doc.primaryDistrict ?: "—" }}</td><th>উপজেলা/থানা</th><td>${(data.upazilaThana.value ?: "").ifBlank { doc.primaryUpazila ?: "—" }}</td></tr>
+                <tr><th>মৌজা ও জে.এল</th><td>${(data.mouza.value ?: "").ifBlank { doc.primaryMouza ?: "—" }} (JL: ${(data.jlNo.value ?: "").ifBlank { doc.primaryJlNo ?: "—" }})</td><th>খতিয়ান নম্বর</th><td>${(data.khatianNo.value ?: "").ifBlank { doc.primaryKhatianNo ?: "—" }}</td></tr>
+                <tr><th>দাগ নম্বর</th><td>${(data.dagNo.value ?: "").ifBlank { doc.primaryDagNo ?: "—" }}</td><th>জমির পরিমাণ</th><td>${(data.areaDecimals.value ?: "").ifBlank { doc.primaryAreaDecimals ?: "—" }} শতাংশ</td></tr>
             </table>
 
             <div class="section-title">২. মালিকানা ও উত্তরাধিকারী হিস্যা (Owners & Shares)</div>

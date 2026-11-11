@@ -49,7 +49,7 @@ class BangladeshLandRecordParserTest {
         assertEquals("", parsed.mouza.value)
         assertEquals("", parsed.jlNo.value)
         assertEquals("", parsed.khatianNo.value)
-        assertEquals("", parsed.dagNo.value)
+        assertTrue(parsed.dagNo.value.isNullOrEmpty())
         assertEquals("", parsed.areaDecimals.value)
         assertTrue("Owners must never be fabricated on empty text", parsed.owners.isEmpty())
         assertTrue(parsed.validationWarnings.isNotEmpty())

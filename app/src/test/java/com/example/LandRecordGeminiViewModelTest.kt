@@ -157,7 +157,8 @@ class LandRecordGeminiViewModelTest {
 
         assertEquals(LandRecordType.RS, landRecordData.recordType)
         assertEquals("ব্রাহ্মণবাড়িয়া", landRecordData.district.value)
-        assertEquals(ConfidenceLevel.VERIFIED, landRecordData.district.confidence)
+        assertEquals(ConfidenceLevel.UNCERTAIN, landRecordData.district.confidence)
+        assertEquals("UNVERIFIED", landRecordData.district.status)
         assertEquals("নবীনগর", landRecordData.upazilaThana.value)
         assertEquals("গোয়ালী", landRecordData.mouza.value)
         assertEquals("৫২১", landRecordData.khatianNo.value)

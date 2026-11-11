@@ -64,6 +64,9 @@ android {
           "robolectric.dependency.repo.url",
           "https://maven-central.storage-download.googleapis.com/maven2"
         )
+        it.systemProperty("robolectric.logging.enabled", "false")
+        it.systemProperty("robolectric.useSdkVersion", "36")
+        it.jvmArgs("-Xmx2048m")
       }
     }
   }

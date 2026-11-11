@@ -22,11 +22,15 @@ import java.io.File
 data class HomeUiState(
     val documents: List<LandDocumentEntity> = emptyList(),
     val filteredDocuments: List<LandDocumentEntity> = emptyList(),
+    val recentDocuments: List<LandDocumentEntity> = emptyList(),
     val selectedCategory: String = "ALL",
     val searchQuery: String = "",
     val totalCount: Int = 0,
-    val verifiedCount: Int = 0,
+    val unverifiedCount: Int = 0,
+    val confirmedCount: Int = 0,
+    val conflictedCount: Int = 0,
     val zeroByteCount: Int = 0,
+    val verifiedCount: Int = 0, // compatibility alias
     val isBatchProcessing: Boolean = false,
     val processingMessage: String = "",
     val exportedFile: File? = null,
@@ -59,8 +63,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     init {
         viewModelScope.launch {
-            repository.seedInitialSampleRecordsIfEmpty()
-            extractedRecordRepository.seedInitialExtractedRecordsIfEmpty()
+            repository.purgeLegacyStaleRecords()
         }
     }
 
@@ -92,14 +95,25 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             matchesCategory && matchesQuery
         }
 
+        val total = docs.size
+        val unverified = docs.count { it.status.equals("UNVERIFIED", ignoreCase = true) || it.status.equals("EXTRACTED", ignoreCase = true) }
+        val confirmed = docs.count { it.status.equals("CONFIRMED", ignoreCase = true) || it.status.equals("VERIFIED", ignoreCase = true) }
+        val conflicted = docs.count { it.status.equals("CONFLICTED", ignoreCase = true) || it.status.equals("CONTRADICTORY", ignoreCase = true) }
+        val zeroByte = docs.count { it.isZeroByte }
+        val recents = docs.take(5)
+
         HomeUiState(
             documents = docs,
             filteredDocuments = filtered,
+            recentDocuments = recents,
             selectedCategory = category,
             searchQuery = query,
-            totalCount = docs.size,
-            verifiedCount = docs.count { it.status == "VERIFIED" },
-            zeroByteCount = docs.count { it.isZeroByte },
+            totalCount = total,
+            unverifiedCount = unverified,
+            confirmedCount = confirmed,
+            conflictedCount = conflicted,
+            zeroByteCount = zeroByte,
+            verifiedCount = confirmed,
             isBatchProcessing = isProcessing,
             processingMessage = msg,
             exportedFile = _exportedFile.value,
@@ -381,6 +395,58 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 }
                 _isBatchProcessing.value = false
                 ReportExportManager.shareFile(app, outFile, format.mimeType, "ভূমি রেকর্ড বাল্ক আর্কাইভ ($fileName)")
+            } catch (_: Exception) {
+                _isBatchProcessing.value = false
+            }
+        }
+    }
+
+    fun exportRecords(
+        format: ExportFormat,
+        categoryFilter: String = "ALL",
+        onComplete: (File) -> Unit
+    ) {
+        viewModelScope.launch {
+            _isBatchProcessing.value = true
+            _processingMessage.value = "রিপোর্ট তৈরি হচ্ছে..."
+            try {
+                val app = getApplication<Application>()
+                val all = if (categoryFilter == "ALL") {
+                    uiState.value.documents
+                } else {
+                    uiState.value.documents.filter { it.classifiedType.equals(categoryFilter, ignoreCase = true) }
+                }
+                val exportDir = File(app.cacheDir, "exports").apply { mkdirs() }
+                val fileName = suggestBatchFileName(format)
+                val outFile = File(exportDir, fileName)
+                when (format) {
+                    ExportFormat.ZIP -> {
+                        val pairs = all.map { doc ->
+                            val data = repository.parseDataJson(doc.extractedDataJson)
+                            Pair(doc, data)
+                        }
+                        val zipBytes = ReportExportManager.buildFullMassExportZipBytes(app, all, pairs)
+                        outFile.writeBytes(zipBytes)
+                    }
+                    ExportFormat.PDF -> {
+                        val pairs = all.map { doc ->
+                            val data = repository.parseDataJson(doc.extractedDataJson)
+                            Pair(doc, data)
+                        }
+                        val pdfBytes = ReportExportManager.buildBatchFormattedPdfBytes(pairs)
+                        outFile.writeBytes(pdfBytes)
+                    }
+                    ExportFormat.CSV -> {
+                        val csvFile = ReportExportManager.generateDocumentsCsv(app, all)
+                        csvFile.copyTo(outFile, overwrite = true)
+                    }
+                    else -> {
+                        val content = getBatchPreviewContent(format)
+                        outFile.writeText(content, Charsets.UTF_8)
+                    }
+                }
+                _isBatchProcessing.value = false
+                onComplete(outFile)
             } catch (_: Exception) {
                 _isBatchProcessing.value = false
             }

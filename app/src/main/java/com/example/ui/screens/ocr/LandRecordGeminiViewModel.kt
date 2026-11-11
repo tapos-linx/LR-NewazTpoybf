@@ -102,9 +102,18 @@ class LandRecordGeminiViewModel @JvmOverloads constructor(
     private val testModel: GenerativeModel? = null
 ) : AndroidViewModel(application) {
 
-    // Lazy initialization using recommended gemini-3.8-flash model as mandated by Firebase AI Logic skill
+    companion object {
+        const val DEFAULT_GEMINI_MODEL = "gemini-2.5-flash"
+    }
+
+    // Lazy initialization using centralized model name and temperature = 0 to prevent hallucinations
     private val generativeModel: GenerativeModel by lazy {
-        testModel ?: Firebase.ai.generativeModel(modelName = "gemini-3.8-flash")
+        testModel ?: Firebase.ai.generativeModel(
+            modelName = DEFAULT_GEMINI_MODEL,
+            generationConfig = com.google.firebase.ai.type.generationConfig {
+                temperature = 0.0f
+            }
+        )
     }
 
     private val _uiState = MutableStateFlow<LandRecordGeminiUiState>(LandRecordGeminiUiState.Idle)
@@ -119,7 +128,7 @@ class LandRecordGeminiViewModel @JvmOverloads constructor(
     fun processLandRecordBitmap(bitmap: Bitmap, customPromptNotes: String? = null) {
         _selectedBitmap.value = bitmap
         viewModelScope.launch {
-            _uiState.value = LandRecordGeminiUiState.Loading("Analyzing land record with Gemini 3.8 Flash...")
+            _uiState.value = LandRecordGeminiUiState.Loading("Analyzing land record with Gemini $DEFAULT_GEMINI_MODEL (Zero-Temperature)...")
             try {
                 // Ensure image is within payload budget (<20MB)
                 val optimizedBitmap = withContext(Dispatchers.Default) {
@@ -278,74 +287,63 @@ class LandRecordGeminiViewModel @JvmOverloads constructor(
     /**
      * Converts a GeminiLandRecordResult to the project-standard LandRecordData entity.
      */
-    fun toLandRecordData(result: GeminiLandRecordResult): LandRecordData {
+    fun toLandRecordData(result: GeminiLandRecordResult, rawResponse: String? = null): LandRecordData {
+        val unclearList = mutableListOf<String>()
+
+        fun makeField(v: String, name: String, rawMatch: String): FieldWithConfidence {
+            val trimmed = v.trim()
+            return if (trimmed.isBlank() || trimmed.equals("null", ignoreCase = true)) {
+                unclearList.add(name)
+                FieldWithConfidence(
+                    value = null,
+                    confidence = ConfidenceLevel.UNCERTAIN,
+                    numericConfidence = null,
+                    source = "GEMINI",
+                    status = "UNVERIFIED",
+                    rawOcrMatch = rawMatch
+                )
+            } else {
+                FieldWithConfidence(
+                    value = trimmed,
+                    confidence = ConfidenceLevel.UNCERTAIN,
+                    numericConfidence = null,
+                    source = "GEMINI",
+                    status = "UNVERIFIED",
+                    rawOcrMatch = rawMatch
+                )
+            }
+        }
+
+        val totalHissa = result.owners.mapNotNull { owner ->
+            val clean = BengaliNumberUtils.toEnglishDigits(owner.shareHissa).trim()
+            clean.toDoubleOrNull()
+        }.sum()
+
+        val isHissaBalanced = if (result.owners.isNotEmpty() && totalHissa > 0.0) {
+            totalHissa in 0.995..1.005
+        } else true
+
+        val warnings = buildList {
+            if (result.khatianNo.isBlank()) add("খতিয়ান নম্বর অস্পষ্ট বা অনুপস্থিত")
+            if (result.dagNo.isBlank()) add("দাগ নম্বর অস্পষ্ট বা অনুপস্থিত")
+            if (!isHissaBalanced) add("মালিকানা হিস্যা সাংঘর্ষিক: মোট হিস্যা $totalHissa (১.০০০০ বা ১৬ আনা নয়)")
+        }
+
         return LandRecordData(
             recordType = result.recordType,
-            district = FieldWithConfidence(
-                value = result.districtBengali.ifBlank { result.districtEnglish },
-                confidence = ConfidenceLevel.VERIFIED,
-                rawOcrMatch = result.districtBengali
-            ),
-            upazilaThana = FieldWithConfidence(
-                value = result.upazilaBengali.ifBlank { result.upazilaEnglish },
-                confidence = ConfidenceLevel.VERIFIED,
-                rawOcrMatch = result.upazilaBengali
-            ),
-            mouza = FieldWithConfidence(
-                value = result.mouzaBengali.ifBlank { result.mouzaEnglish },
-                confidence = ConfidenceLevel.VERIFIED,
-                rawOcrMatch = result.mouzaBengali
-            ),
-            jlNo = FieldWithConfidence(
-                value = result.jlNo,
-                confidence = ConfidenceLevel.VERIFIED,
-                rawOcrMatch = result.jlNo
-            ),
-            khatianNo = FieldWithConfidence(
-                value = result.khatianNo,
-                confidence = ConfidenceLevel.VERIFIED,
-                rawOcrMatch = result.khatianNo
-            ),
-            formerKhatianNo = FieldWithConfidence(
-                value = result.formerKhatianNo,
-                confidence = ConfidenceLevel.PROBABLE,
-                rawOcrMatch = result.formerKhatianNo
-            ),
-            halKhatianNo = FieldWithConfidence(
-                value = result.halKhatianNo,
-                confidence = ConfidenceLevel.PROBABLE,
-                rawOcrMatch = result.halKhatianNo
-            ),
-            dagNo = FieldWithConfidence(
-                value = result.dagNo,
-                confidence = ConfidenceLevel.VERIFIED,
-                rawOcrMatch = result.dagNo
-            ),
-            formerDagNo = FieldWithConfidence(
-                value = result.formerDagNo,
-                confidence = ConfidenceLevel.PROBABLE,
-                rawOcrMatch = result.formerDagNo
-            ),
-            halDagNo = FieldWithConfidence(
-                value = result.halDagNo,
-                confidence = ConfidenceLevel.PROBABLE,
-                rawOcrMatch = result.halDagNo
-            ),
-            landClass = FieldWithConfidence(
-                value = result.landClass,
-                confidence = ConfidenceLevel.PROBABLE,
-                rawOcrMatch = result.landClass
-            ),
-            areaAcres = FieldWithConfidence(
-                value = result.totalAreaAcres,
-                confidence = ConfidenceLevel.PROBABLE,
-                rawOcrMatch = result.totalAreaAcres
-            ),
-            areaDecimals = FieldWithConfidence(
-                value = result.totalAreaDecimals,
-                confidence = ConfidenceLevel.PROBABLE,
-                rawOcrMatch = result.totalAreaDecimals
-            ),
+            district = makeField(result.districtBengali.ifBlank { result.districtEnglish }, "district", result.districtBengali),
+            upazilaThana = makeField(result.upazilaBengali.ifBlank { result.upazilaEnglish }, "upazilaThana", result.upazilaBengali),
+            mouza = makeField(result.mouzaBengali.ifBlank { result.mouzaEnglish }, "mouza", result.mouzaBengali),
+            jlNo = makeField(result.jlNo, "jlNo", result.jlNo),
+            khatianNo = makeField(result.khatianNo, "khatianNo", result.khatianNo),
+            formerKhatianNo = makeField(result.formerKhatianNo, "formerKhatianNo", result.formerKhatianNo),
+            halKhatianNo = makeField(result.halKhatianNo, "halKhatianNo", result.halKhatianNo),
+            dagNo = makeField(result.dagNo, "dagNo", result.dagNo),
+            formerDagNo = makeField(result.formerDagNo, "formerDagNo", result.formerDagNo),
+            halDagNo = makeField(result.halDagNo, "halDagNo", result.halDagNo),
+            landClass = makeField(result.landClass, "landClass", result.landClass),
+            areaAcres = makeField(result.totalAreaAcres, "areaAcres", result.totalAreaAcres),
+            areaDecimals = makeField(result.totalAreaDecimals, "areaDecimals", result.totalAreaDecimals),
             owners = result.owners.map { owner ->
                 OwnerRecord(
                     serial = owner.serial,
@@ -353,60 +351,59 @@ class LandRecordGeminiViewModel @JvmOverloads constructor(
                     fatherOrHusbandName = owner.fatherOrHusbandName,
                     shareHissa = owner.shareHissa,
                     address = owner.address,
-                    confidence = ConfidenceLevel.VERIFIED
+                    confidence = ConfidenceLevel.UNCERTAIN
                 )
             },
-            validationWarnings = buildList {
-                if (result.khatianNo.isBlank()) add("খতিয়ান নম্বর চিহ্নিত করা যায়নি (Khatian No missing)")
-                if (result.dagNo.isBlank()) add("দাগ নম্বর চিহ্নিত করা যায়নি (Dag No missing)")
-                if (result.mouzaBengali.isBlank() && result.mouzaEnglish.isBlank()) add("মৌজা নাম চিহ্নিত করা যায়নি (Mouza missing)")
-            }
+            validationWarnings = warnings,
+            unclearFields = unclearList,
+            rawModelResponse = rawResponse,
+            isHissaValid = isHissaBalanced,
+            hissaTotalCalculated = totalHissa
         )
     }
 
     /**
      * Builds specialized bilingual prompt for Bangladesh Land Records.
+     * Strictly enforces zero-hallucination and evidence preservation rules.
      */
     private fun buildBilingualLandRecordPrompt(customNotes: String?): String {
         return buildString {
-            appendLine("You are an expert optical character recognition (OCR) and land record analyst specializing in Bangladesh Land Administration records.")
-            appendLine("The provided image is a Bangladeshi land document such as a Khatian/Porcha (CS, SA, RS, BS, City Survey), Mutation record (নামজারি), Registered Deed (দলিল), Tax Receipt (দাখিলা), or Heirship/Inheritance Certificate (ওয়ারিশ সনদ).")
+            appendLine("You are an evidence-preserving optical character recognition (OCR) and forensic document engine for Bangladesh Land Records.")
+            appendLine("The provided image is a legal land document (Khatian, Porcha, Mutation Porcha, Registered Deed, or Warish Certificate).")
             appendLine()
-            appendLine("MANDATORY OCR RULES:")
-            appendLine("1. Extract ALL text in both Bengali (বাংলা) and English with 100% character fidelity.")
-            appendLine("2. PRESERVE BENGALI NUMERALS: Keep Bengali digits (০, ১, ২, ৩, ৪, ৫, ৬, ৭, ৮, ৯) exact. Do not drop leading zeros (e.g. '০৮').")
-            appendLine("3. PRESERVE COMPLEX CONJUNCTS: Accurately recognize Bengali conjunct letters (যুক্তাক্ষর যেমন: ক্ত, ক্ষ, ষ্ণ, ঙ্গ, জ্ঞ, ঞ্চ, ষ্ঠ).")
-            appendLine("4. CAPTURE ENGLISH NOTATIONS: Preserve English alphanumeric stamps, office seal dates, file registration codes, and English names.")
-            appendLine("5. EXTRACT ADMINISTRATIVE DIVISIONS: District (জেলা), Upazila/Thana (উপজেলা/থানা), Mouza (মৌজা), J.L. No. (জে. এল. নং).")
-            appendLine("6. EXTRACT PLOT & KHATIAN NUMBERS: Khatian No. (খতিয়ান নং), Former/Sabek Khatian, Hal/Present Khatian, Dag/Plot No. (দাগ নং), Former Dag, Hal Dag.")
-            appendLine("7. EXTRACT OWNERS & TENANTS: Owner names (রায়তের নাম), Father/Husband names (পিতা/স্বামীর নাম), Address (ঠিকানা), and Share/Hissa (অংশ).")
-            appendLine("8. EXTRACT SEALS & MARGINAL NOTES: Top header seals, assistant commissioner (land) mutation notes, and side margin handwriting.")
+            appendLine("CRITICAL ANTI-HALLUCINATION RULES:")
+            appendLine("1. ZERO GUESSING TOLERANCE: Transcribe ONLY characters that are visibly legible in the image.")
+            appendLine("2. If any field or word is torn, faded, blurred, or illegible, return null for that field and list it in 'unclearFields'.")
+            appendLine("3. NEVER invent, infer, complete, or normalize names, fathers' names, plot/dag numbers, khatian numbers, or land areas.")
+            appendLine("4. PRESERVE BENGALI NUMERALS: Keep Bengali digits (০, ১, ২, ৩, ৪, ৫, ৬, ৭, ৮, ৯) exact. Do not drop leading zeros (e.g. '০৮').")
+            appendLine("5. PRESERVE COMPLEX CONJUNCTS: Accurately recognize Bengali conjunct letters (যুক্তাক্ষর যেমন: ক্ত, ক্ষ, ষ্ণ, ঙ্গ, জ্ঞ, ঞ্চ, ষ্ঠ).")
+            appendLine("6. BILINGUAL TEXT: Preserve English stamps, seal dates, registration numbers, and English handwritten remarks.")
             if (!customNotes.isNullOrBlank()) {
                 appendLine("USER CONTEXT NOTES: $customNotes")
             }
             appendLine()
             appendLine("OUTPUT FORMAT:")
-            appendLine("Respond with a structured JSON object at the start of your reply enclosed between <<<JSON>>> and <<</JSON>>>, followed by the full bilingual transcripts:")
+            appendLine("Respond with a structured JSON object enclosed between <<<JSON>>> and <<</JSON>>>, followed by verbatim transcripts:")
             appendLine("<<<JSON>>>")
             appendLine("{")
             appendLine("  \"recordType\": \"CS | SA | RS | BS | NAMJARI | DEED | TAX | WARIS | OTHER\",")
-            appendLine("  \"surveyName\": \"string\",")
-            appendLine("  \"districtBengali\": \"string\",")
-            appendLine("  \"districtEnglish\": \"string\",")
-            appendLine("  \"upazilaBengali\": \"string\",")
-            appendLine("  \"upazilaEnglish\": \"string\",")
-            appendLine("  \"mouzaBengali\": \"string\",")
-            appendLine("  \"mouzaEnglish\": \"string\",")
-            appendLine("  \"jlNo\": \"string\",")
-            appendLine("  \"khatianNo\": \"string\",")
-            appendLine("  \"formerKhatianNo\": \"string\",")
-            appendLine("  \"halKhatianNo\": \"string\",")
-            appendLine("  \"dagNo\": \"string\",")
-            appendLine("  \"formerDagNo\": \"string\",")
-            appendLine("  \"halDagNo\": \"string\",")
-            appendLine("  \"landClass\": \"string\",")
-            appendLine("  \"totalAreaAcres\": \"string\",")
-            appendLine("  \"totalAreaDecimals\": \"string\",")
+            appendLine("  \"surveyName\": \"string or null\",")
+            appendLine("  \"districtBengali\": \"string or null\",")
+            appendLine("  \"districtEnglish\": \"string or null\",")
+            appendLine("  \"upazilaBengali\": \"string or null\",")
+            appendLine("  \"upazilaEnglish\": \"string or null\",")
+            appendLine("  \"mouzaBengali\": \"string or null\",")
+            appendLine("  \"mouzaEnglish\": \"string or null\",")
+            appendLine("  \"jlNo\": \"string or null\",")
+            appendLine("  \"khatianNo\": \"string or null\",")
+            appendLine("  \"formerKhatianNo\": \"string or null\",")
+            appendLine("  \"halKhatianNo\": \"string or null\",")
+            appendLine("  \"dagNo\": \"string or null\",")
+            appendLine("  \"formerDagNo\": \"string or null\",")
+            appendLine("  \"halDagNo\": \"string or null\",")
+            appendLine("  \"landClass\": \"string or null\",")
+            appendLine("  \"totalAreaAcres\": \"string or null\",")
+            appendLine("  \"totalAreaDecimals\": \"string or null\",")
             appendLine("  \"owners\": [")
             appendLine("    {")
             appendLine("      \"serial\": 1,")
@@ -419,6 +416,12 @@ class LandRecordGeminiViewModel @JvmOverloads constructor(
             appendLine("  ],")
             appendLine("  \"stampsAndSeals\": [\"string\"],")
             appendLine("  \"marginalNotes\": [\"string\"],")
+            appendLine("  \"unclearFields\": [\"string\"],")
+            appendLine("  \"rawBengaliText\": \"Verbatim visible Bengali text\",")
+            appendLine("  \"rawEnglishText\": \"Verbatim visible English text\",")
+            appendLine("  \"confidenceNotes\": \"Observations on legibility or physical damage\"")
+            appendLine("}")
+            appendLine("<<</JSON>>>")
             appendLine("  \"rawBengaliText\": \"Full extracted Bengali text\",")
             appendLine("  \"rawEnglishText\": \"Full extracted English text\",")
             appendLine("  \"confidenceNotes\": \"Observations on legibility or torn sections\"")

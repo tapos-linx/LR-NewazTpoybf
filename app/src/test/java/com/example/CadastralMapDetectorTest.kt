@@ -1,6 +1,7 @@
 package com.example
 
 import com.example.domain.gis.CadastralMapDetector
+import com.example.fixtures.SyntheticTestData
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -17,6 +18,9 @@ class CadastralMapDetectorTest {
     fun testSheetMetadataAndFeaturesDetection() {
         val sheetData = detector.detectAndHighlightParcels(
             targetDags = listOf("১০২"),
+            baseParcels = SyntheticTestData.createSyntheticCadastralParcels(),
+            roadLines = SyntheticTestData.createSyntheticCadastralRoads(),
+            waterBodies = SyntheticTestData.createSyntheticCadastralWaterBodies(),
             mouzaHint = "শুভাঢ্যা",
             sheetNoHint = "১"
         )
@@ -34,7 +38,10 @@ class CadastralMapDetectorTest {
     @Test
     fun testHighlightingRuleNeverHighlightsAllParcels() {
         val targetDags = listOf("১০২", "১০৯")
-        val sheetData = detector.detectAndHighlightParcels(targetDags)
+        val sheetData = detector.detectAndHighlightParcels(
+            targetDags = targetDags,
+            baseParcels = SyntheticTestData.createSyntheticCadastralParcels()
+        )
 
         // Strict rule: never highlight all parcels
         val totalParcels = sheetData.parcels.size

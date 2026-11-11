@@ -15,6 +15,7 @@ import com.example.data.local.entity.MutationPartyEntity
 import com.example.data.local.entity.MutationPlotEntity
 import com.example.data.local.entity.MutationRecordEntity
 import com.example.data.repository.ExtractedLandRecordRepository
+import com.example.fixtures.SyntheticTestData
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -52,7 +53,7 @@ class ExtractedLandRecordDatabaseTest {
 
     @Test
     fun testSeedInitialExtractedRecordsMasterDataset() = runBlocking {
-        repository.seedInitialExtractedRecordsIfEmpty()
+        SyntheticTestData.seedTestKhatians(repository)
 
         // 1. Verify Khatians: CS, SA, RS, BRS
         val khatians = repository.allKhatians.first()

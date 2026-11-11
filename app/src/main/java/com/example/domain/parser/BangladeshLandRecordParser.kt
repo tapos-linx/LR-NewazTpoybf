@@ -136,10 +136,10 @@ object BangladeshLandRecordParser {
             pageIndex = pageIndex
         )
         val dagNo = when {
-            primaryDagMatch.value.isNotBlank() -> primaryDagMatch
-            halDagNo.value.isNotBlank() -> halDagNo
-            formerDagNo.value.isNotBlank() -> formerDagNo
-            else -> FieldWithConfidence("", ConfidenceLevel.UNCERTAIN, evidencePage = pageIndex)
+            primaryDagMatch.value?.isNotBlank() == true -> primaryDagMatch
+            halDagNo.value?.isNotBlank() == true -> halDagNo
+            formerDagNo.value?.isNotBlank() == true -> formerDagNo
+            else -> FieldWithConfidence(null, ConfidenceLevel.UNCERTAIN, evidencePage = pageIndex)
         }
 
         // 10. Land Classification (জমির শ্রেণি)
@@ -212,11 +212,11 @@ object BangladeshLandRecordParser {
             validationWarnings.add("মালিক/রায়তের নাম স্বয়ংক্রিয়ভাবে শনাক্ত করা যায়নি — ম্যানুয়াল যাচাই প্রয়োজন")
         }
 
-        if (khatianNo.value.isBlank()) {
+        if (khatianNo.value.isNullOrBlank()) {
             validationWarnings.add("খতিয়ান নম্বর অস্পষ্ট বা সনাক্ত করা যায়নি; মূল দলিলের সাথে মিলিয়ে নিন")
         }
 
-        if (mouza.value.isBlank() || jlNo.value.isBlank()) {
+        if (mouza.value.isNullOrBlank() || jlNo.value.isNullOrBlank()) {
             validationWarnings.add("মৌজা অথবা জে. এল. নম্বর অনুপস্থিত বা যাচাই প্রয়োজন")
         }
 

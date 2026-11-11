@@ -642,16 +642,16 @@ private fun ExtractedFieldsTab(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     EditableFieldRow("জেলা (District)", data.district.value, data.district.confidence) {
-                        onEditField("district", "জেলা পরিবর্তন করুন", data.district.value)
+                        onEditField("district", "জেলা পরিবর্তন করুন", data.district.value ?: "")
                     }
                     EditableFieldRow("উপজেলা / থানা", data.upazilaThana.value, data.upazilaThana.confidence) {
-                        onEditField("upazilaThana", "উপজেলা/থানা পরিবর্তন করুন", data.upazilaThana.value)
+                        onEditField("upazilaThana", "উপজেলা/থানা পরিবর্তন করুন", data.upazilaThana.value ?: "")
                     }
                     EditableFieldRow("মৌজা (Mouza)", data.mouza.value, data.mouza.confidence) {
-                        onEditField("mouza", "মৌজা পরিবর্তন করুন", data.mouza.value)
+                        onEditField("mouza", "মৌজা পরিবর্তন করুন", data.mouza.value ?: "")
                     }
                     EditableFieldRow("জে. এল. নং (JL No)", data.jlNo.value, data.jlNo.confidence) {
-                        onEditField("jlNo", "জে. এল. নং পরিবর্তন করুন", data.jlNo.value)
+                        onEditField("jlNo", "জে. এল. নং পরিবর্তন করুন", data.jlNo.value ?: "")
                     }
                 }
             }
@@ -672,16 +672,16 @@ private fun ExtractedFieldsTab(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     EditableFieldRow("খতিয়ান নং (Khatian)", data.khatianNo.value, data.khatianNo.confidence) {
-                        onEditField("khatianNo", "খতিয়ান নং পরিবর্তন করুন", data.khatianNo.value)
+                        onEditField("khatianNo", "খতিয়ান নং পরিবর্তন করুন", data.khatianNo.value ?: "")
                     }
                     EditableFieldRow("দাগ নং (Dag/Plot)", data.dagNo.value, data.dagNo.confidence) {
-                        onEditField("dagNo", "দাগ নং পরিবর্তন করুন", data.dagNo.value)
+                        onEditField("dagNo", "দাগ নং পরিবর্তন করুন", data.dagNo.value ?: "")
                     }
                     EditableFieldRow("সাবেক দাগ নং", data.formerDagNo.value, data.formerDagNo.confidence) {
-                        onEditField("formerDagNo", "সাবেক দাগ নং পরিবর্তন করুন", data.formerDagNo.value)
+                        onEditField("formerDagNo", "সাবেক দাগ নং পরিবর্তন করুন", data.formerDagNo.value ?: "")
                     }
                     EditableFieldRow("হাল দাগ নং", data.halDagNo.value, data.halDagNo.confidence) {
-                        onEditField("halDagNo", "হাল দাগ নং পরিবর্তন করুন", data.halDagNo.value)
+                        onEditField("halDagNo", "হাল দাগ নং পরিবর্তন করুন", data.halDagNo.value ?: "")
                     }
                 }
             }
@@ -702,16 +702,16 @@ private fun ExtractedFieldsTab(
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     EditableFieldRow("জমির শ্রেণি", data.landClass.value, data.landClass.confidence) {
-                        onEditField("landClass", "জমির শ্রেণি পরিবর্তন করুন", data.landClass.value)
+                        onEditField("landClass", "জমির শ্রেণি পরিবর্তন করুন", data.landClass.value ?: "")
                     }
-                    EditableFieldRow("জমির পরিমাণ (শতক/শতাংশ)", "${data.areaDecimals.value} শতাংশ", data.areaDecimals.confidence) {
-                        onEditField("areaDecimals", "শতাংশ পরিবর্তন করুন", data.areaDecimals.value)
+                    EditableFieldRow("জমির পরিমাণ (শতক/শতাংশ)", "${data.areaDecimals.value ?: "—"} শতাংশ", data.areaDecimals.confidence) {
+                        onEditField("areaDecimals", "শতাংশ পরিবর্তন করুন", data.areaDecimals.value ?: "")
                     }
-                    EditableFieldRow("জমির পরিমাণ (একর)", "${data.areaAcres.value} একর", data.areaAcres.confidence) {
-                        onEditField("areaAcres", "একর পরিবর্তন করুন", data.areaAcres.value)
+                    EditableFieldRow("জমির পরিমাণ (একর)", "${data.areaAcres.value ?: "—"} একর", data.areaAcres.confidence) {
+                        onEditField("areaAcres", "একর পরিবর্তন করুন", data.areaAcres.value ?: "")
                     }
                     EditableFieldRow("বার্ষিক দাবি / খাজনা", data.annualRent.value, data.annualRent.confidence) {
-                        onEditField("annualRent", "বার্ষিক খাজনা পরিবর্তন করুন", data.annualRent.value)
+                        onEditField("annualRent", "বার্ষিক খাজনা পরিবর্তন করুন", data.annualRent.value ?: "")
                     }
                 }
             }
@@ -791,7 +791,7 @@ private fun ExtractedFieldsTab(
 @Composable
 private fun EditableFieldRow(
     label: String,
-    value: String,
+    value: String?,
     confidence: ConfidenceLevel,
     onEdit: () -> Unit
 ) {
@@ -809,7 +809,7 @@ private fun EditableFieldRow(
                 color = MaterialTheme.colorScheme.outline
             )
             Text(
-                text = if (value.isBlank()) "—" else value,
+                text = if (value.isNullOrBlank()) "—" else value,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = FontWeight.Medium
             )

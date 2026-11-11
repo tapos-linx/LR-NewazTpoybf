@@ -65,28 +65,20 @@ class InheritanceMatcher {
             "BRS" to surveyRecords.any { it.sourceCategory.equals("BRS", ignoreCase = true) || it.classifiedType.equals("BRS", ignoreCase = true) }
         )
 
-        // 5. Determine Overall Evidence Tier
+        // 5. Determine Overall Evidence Tier (CONFIRMED, PROBABLE, CONFLICTED, UNVERIFIED)
+        val hasRecordGap = matchedPlots.any { it.hasRecordGap }
         val overallEvidenceTier = when {
-            matchedPlots.any { it.evidenceTier == EvidenceTier.CONTRADICTORY } || totalDeclaredShare > 1.005 ->
-                EvidenceTier.CONTRADICTORY
+            matchedPlots.any { it.evidenceTier == EvidenceTier.CONFLICTED } || totalDeclaredShare > 1.005 ->
+                EvidenceTier.CONFLICTED
 
-            matchedPlots.any { it.evidenceTier == EvidenceTier.RECORD_GAP } ->
-                EvidenceTier.RECORD_GAP
-
-            matchedPlots.isNotEmpty() && matchedPlots.all { it.evidenceTier == EvidenceTier.VERIFIED } && isHissaBalanced ->
-                EvidenceTier.VERIFIED
-
-            matchedPlots.any { it.evidenceTier == EvidenceTier.CORROBORATED } ->
-                EvidenceTier.CORROBORATED
+            matchedPlots.isNotEmpty() && matchedPlots.all { it.evidenceTier == EvidenceTier.CONFIRMED } && isHissaBalanced ->
+                EvidenceTier.CONFIRMED
 
             matchedPlots.any { it.evidenceTier == EvidenceTier.PROBABLE } ->
                 EvidenceTier.PROBABLE
 
-            matchedPlots.isNotEmpty() ->
-                EvidenceTier.POSSIBLE
-
             else ->
-                EvidenceTier.POSSIBLE
+                EvidenceTier.UNVERIFIED
         }
 
         // 6. Calculate Overall Confidence Score
@@ -107,7 +99,8 @@ class InheritanceMatcher {
             overallEvidenceTier = overallEvidenceTier,
             overallConfidenceScore = (overallConfidence * 10).roundToInt() / 10f,
             globalDiscrepancies = globalDiscrepancies,
-            chainCompleteness = chainCompleteness
+            chainCompleteness = chainCompleteness,
+            hasRecordGap = hasRecordGap
         )
     }
 
@@ -216,22 +209,23 @@ class InheritanceMatcher {
         // Evaluate Tier & Confidence
         val tier: EvidenceTier
         val confidence: Float
+        val isGap = foundCs && foundRs && !foundSa
 
         when {
             contradictoryClaim -> {
-                tier = EvidenceTier.CONTRADICTORY
+                tier = EvidenceTier.CONFLICTED
                 confidence = 25.0f
             }
-            foundCs && foundRs && !foundSa -> {
-                tier = EvidenceTier.RECORD_GAP
+            isGap -> {
+                tier = EvidenceTier.UNVERIFIED
                 confidence = 58.0f
             }
             ownerMatchFound && matchingRecords.size >= 2 && (foundCs || foundSa) && (foundRs || foundBrs) -> {
-                tier = EvidenceTier.VERIFIED
+                tier = EvidenceTier.CONFIRMED
                 confidence = 94.5f
             }
             ownerMatchFound && matchingRecords.isNotEmpty() -> {
-                tier = EvidenceTier.CORROBORATED
+                tier = EvidenceTier.PROBABLE
                 confidence = 82.0f
             }
             matchingRecords.isNotEmpty() -> {
@@ -239,7 +233,7 @@ class InheritanceMatcher {
                 confidence = 68.0f
             }
             else -> {
-                tier = EvidenceTier.POSSIBLE
+                tier = EvidenceTier.UNVERIFIED
                 confidence = 42.0f
                 discrepancies.add("সংশ্লিষ্ট দাগের সরাসরি কোনো স্ক্যানকৃত জরিপ খতিয়ান ডাটাবেজে এখনো পাওয়া যায়নি।")
             }
@@ -259,7 +253,8 @@ class InheritanceMatcher {
             confidenceScore = confidence,
             discrepancies = discrepancies,
             isContradictory = contradictoryClaim,
-            notes = "মোট জমি: ${BengaliNumberUtils.toBengaliDigits("%.2f".format(totalArea))} শতাংশ ($landClass)"
+            hasRecordGap = isGap,
+            notes = if (isGap) "RECORD GAP: মধ্যবর্তী এস এ জরিপ অনুপস্থিত" else "মোট জমি: ${BengaliNumberUtils.toBengaliDigits("%.2f".format(totalArea))} শতাংশ ($landClass)"
         )
     }
 

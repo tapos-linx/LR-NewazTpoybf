@@ -141,7 +141,7 @@ class TesseractOcrService(
 
             // Extract mean confidence
             val meanConfMethod = runCatching { tessClass.getMethod("meanConfidence") }.getOrNull()
-            val confidence = (meanConfMethod?.invoke(tessInstance) as? Int)?.toFloat() ?: 75.0f
+            val confidence = (meanConfMethod?.invoke(tessInstance) as? Int)?.toFloat() ?: 0.0f
 
             // Extract word boxes if available
             val wordBoxes = extractBoundingBoxes(tessInstance)
@@ -181,7 +181,7 @@ class TesseractOcrService(
             val rawText = (getUtf8TextMethod.invoke(tessInstance) as? String)?.trim() ?: ""
 
             val meanConfMethod = runCatching { tessClass.getMethod("meanConfidence") }.getOrNull()
-            val confidence = (meanConfMethod?.invoke(tessInstance) as? Int)?.toFloat() ?: 75.0f
+            val confidence = (meanConfMethod?.invoke(tessInstance) as? Int)?.toFloat() ?: 0.0f
 
             val wordBoxes = extractBoundingBoxes(tessInstance)
             val duration = System.currentTimeMillis() - startTime

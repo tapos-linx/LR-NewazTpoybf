@@ -159,19 +159,17 @@ class ForensicValidationEngine {
         val warningCount = issues.count { it.severity == IssueSeverity.WARNING }
 
         val (tier, score) = when {
-            criticalCount > 0 -> EvidenceTier.CONTRADICTORY to 0.35f
-            issues.any { it.category == ValidationIssueCategory.CHAIN_DISCONTINUITY } -> EvidenceTier.RECORD_GAP to 0.58f
+            criticalCount > 0 -> EvidenceTier.CONFLICTED to 0.35f
+            issues.any { it.category == ValidationIssueCategory.CHAIN_DISCONTINUITY } -> EvidenceTier.UNVERIFIED to 0.58f
             warningCount > 0 -> EvidenceTier.PROBABLE to 0.76f
-            else -> EvidenceTier.VERIFIED to 0.98f
+            else -> EvidenceTier.CONFIRMED to 0.98f
         }
 
         val summaryBn = when (tier) {
-            EvidenceTier.VERIFIED -> "নথির সকল তথ্য ও ধারাবাহিক স্বত্ব সম্পূর্ণরূপে যাচাইকৃত (VERIFIED)"
-            EvidenceTier.CORROBORATED -> "সহায়ক নথিপত্র দ্বারা সমর্থিত স্বত্ব (CORROBORATED)"
-            EvidenceTier.PROBABLE -> "স্বত্ব সম্ভাব্য তবে কিছু ক্ষেত্রে সতর্ক পর্যবেক্ষণ প্রয়োজন (PROBABLE)"
-            EvidenceTier.POSSIBLE -> "আংশিক মিল রয়েছে কিন্তু পর্যাপ্ত প্রমাণের ঘাটতি (POSSIBLE)"
-            EvidenceTier.RECORD_GAP -> "জরিপকালীন ধারাবাহিক রেকর্ডে ব্যবধান চিহ্নিত (RECORD GAP)"
-            EvidenceTier.CONTRADICTORY -> "গুরুতর আইনি বা ক্ষেত্রীয় অসঙ্গতি বিদ্যমান (CONTRADICTORY)"
+            EvidenceTier.CONFIRMED -> "নথির সকল তথ্য ও ধারাবাহিক স্বত্ব সম্পূর্ণরূপে নিশ্চিতকৃত (CONFIRMED - লেডার A–B)"
+            EvidenceTier.PROBABLE -> "স্বত্ব সম্ভাব্য তবে কিছু ক্ষেত্রে সতর্ক পর্যবেক্ষণ প্রয়োজন (PROBABLE - লেডার C)"
+            EvidenceTier.CONFLICTED -> "গুরুতর আইনি বা ক্ষেত্রীয় অসঙ্গতি বিদ্যমান (CONFLICTED - লেডার D)"
+            EvidenceTier.UNVERIFIED -> "অযাচাইকৃত বা নথিতে ব্যবধান চিহ্নিত (UNVERIFIED - লেডার E–F)"
         }
 
         return ForensicValidationReport(

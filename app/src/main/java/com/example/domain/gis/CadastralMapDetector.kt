@@ -40,13 +40,13 @@ data class CadastralWaterBody(
 data class CadastralSheetData(
     val surveyType: String = "CS", // CS, SA, RS, BRS
     val sheetNo: String = "১",
-    val mouzaName: String = "শুভাঢ্যা",
-    val jlNo: String = "১০২",
-    val upazila: String = "কেরানীগঞ্জ",
-    val district: String = "ঢাকা",
-    val parcels: List<CadastralParcel>,
-    val roadLines: List<CadastralRoad>,
-    val waterBodies: List<CadastralWaterBody>,
+    val mouzaName: String = "",
+    val jlNo: String = "",
+    val upazila: String = "",
+    val district: String = "",
+    val parcels: List<CadastralParcel> = emptyList(),
+    val roadLines: List<CadastralRoad> = emptyList(),
+    val waterBodies: List<CadastralWaterBody> = emptyList(),
     val hasNorthArrow: Boolean = true,
     val scaleRatio: String = "১৬ ইঞ্চি = ১ মাইল"
 )
@@ -54,56 +54,49 @@ data class CadastralSheetData(
 /**
  * Cadastral Survey Map Intelligence Engine.
  *
- * Implements the forensic GIS logic:
- * - Detects Dag (plot) boundaries and plot numbers.
- * - Detects natural features (roads, canals, water bodies).
- * - CRITICAL RULE: Never highlight all parcels. Highlights ONLY the lands
- *   matched from the inheritance certificate (target Dags), leaving all others unaltered.
+ * Implements evidence-based GIS logic:
+ * - Highlights ONLY genuine target Dags from matched inheritance certificates.
+ * - Enforces zero-fabrication: never invents map coordinates, parcels, or road vectors.
+ * - When no map sheet is loaded, returns empty data with NO_MAP status.
  */
 class CadastralMapDetector(private val surveyType: String = "CS") {
 
     /**
-     * Generates or detects cadastral survey sheet parcels and explicitly marks
-     * matched target Dags.
+     * Highlights matched target Dags on genuine detected cadastral sheet parcels.
+     * If no map parcels are provided, returns an empty sheet without fabricated polygons.
      */
     fun detectAndHighlightParcels(
         targetDags: List<String>,
-        mouzaHint: String = "শুভাঢ্যা",
+        baseParcels: List<CadastralParcel> = emptyList(),
+        roadLines: List<CadastralRoad> = emptyList(),
+        waterBodies: List<CadastralWaterBody> = emptyList(),
+        mouzaHint: String = "",
         sheetNoHint: String = "১"
     ): CadastralSheetData {
         val normalizedTargetDags = targetDags.map { it.trim() }
 
-        // Grid-based cadastral parcel layout resembling authentic CS/RS Mouza sheets
-        val rawParcels = listOf(
-            // Row 1
-            CadastralParcel("১০১", Rect(0.06f, 0.12f, 0.32f, 0.28f), 32.5, "নাল"),
-            CadastralParcel("১০২", Rect(0.34f, 0.12f, 0.62f, 0.28f), 45.0, "বাড়ি"),
-            CadastralParcel("১০৩", Rect(0.64f, 0.12f, 0.94f, 0.28f), 28.0, "নাল"),
-
-            // Row 2
-            CadastralParcel("১০৪", Rect(0.06f, 0.30f, 0.25f, 0.48f), 22.0, "ভিটি"),
-            CadastralParcel("১০৫", Rect(0.27f, 0.30f, 0.52f, 0.48f), 35.0, "নাল"),
-            CadastralParcel("১০৬", Rect(0.54f, 0.30f, 0.74f, 0.48f), 18.5, "পুকুর"),
-            CadastralParcel("১০৭", Rect(0.76f, 0.30f, 0.94f, 0.48f), 29.0, "নাল"),
-
-            // Row 3
-            CadastralParcel("১০৮", Rect(0.06f, 0.52f, 0.35f, 0.70f), 52.0, "নাল"),
-            CadastralParcel("১০৯", Rect(0.37f, 0.52f, 0.64f, 0.70f), 41.5, "ধানী"),
-            CadastralParcel("১১০", Rect(0.66f, 0.52f, 0.94f, 0.70f), 38.0, "নাল"),
-
-            // Row 4
-            CadastralParcel("১১১", Rect(0.06f, 0.72f, 0.30f, 0.90f), 26.0, "বাগান"),
-            CadastralParcel("১১২", Rect(0.32f, 0.72f, 0.58f, 0.90f), 34.0, "নাল"),
-            CadastralParcel("১১৩", Rect(0.60f, 0.72f, 0.82f, 0.90f), 30.5, "নাল"),
-            CadastralParcel("১১৪", Rect(0.84f, 0.72f, 0.94f, 0.90f), 15.0, "পতিত")
-        )
+        if (baseParcels.isEmpty()) {
+            return CadastralSheetData(
+                surveyType = surveyType,
+                sheetNo = sheetNoHint,
+                mouzaName = mouzaHint,
+                jlNo = "",
+                upazila = "",
+                district = "",
+                parcels = emptyList(),
+                roadLines = emptyList(),
+                waterBodies = emptyList(),
+                hasNorthArrow = false,
+                scaleRatio = ""
+            )
+        }
 
         // Strict Forensic Rule:
         // Highlights ONLY the lands matched from the inheritance certificate,
         // leaving all other parcels in their original survey state.
-        val highlightedParcels = rawParcels.map { parcel ->
+        val highlightedParcels = baseParcels.map { parcel ->
             val isMatched = normalizedTargetDags.any { target ->
-                target.contains(parcel.dagNo) || parcel.dagNo.contains(target)
+                target.isNotBlank() && (target.contains(parcel.dagNo) || parcel.dagNo.contains(target))
             }
             parcel.copy(
                 isTargetMatched = isMatched,
@@ -111,36 +104,13 @@ class CadastralMapDetector(private val surveyType: String = "CS") {
             )
         }
 
-        // Road network (হালট / রাস্তা passing through middle)
-        val roadLines = listOf(
-            CadastralRoad(
-                id = "road-1",
-                name = "পাবলিক হালট",
-                pathPoints = listOf(
-                    Offset(0.02f, 0.50f),
-                    Offset(0.36f, 0.50f),
-                    Offset(0.65f, 0.50f),
-                    Offset(0.98f, 0.50f)
-                )
-            )
-        )
-
-        // Water body (খাল / পুকুর)
-        val waterBodies = listOf(
-            CadastralWaterBody(
-                id = "water-1",
-                name = "সরকারি খাল",
-                bounds = Rect(0.55f, 0.32f, 0.72f, 0.46f)
-            )
-        )
-
         return CadastralSheetData(
             surveyType = surveyType,
             sheetNo = sheetNoHint,
             mouzaName = mouzaHint,
-            jlNo = "১০২",
-            upazila = "কেরানীগঞ্জ",
-            district = "ঢাকা",
+            jlNo = "",
+            upazila = "",
+            district = "",
             parcels = highlightedParcels,
             roadLines = roadLines,
             waterBodies = waterBodies,
@@ -157,14 +127,6 @@ class CadastralMapDetector(private val surveyType: String = "CS") {
         val highlightedCount = sheetData.parcels.count { it.isTargetMatched }
         if (sheetData.parcels.isEmpty()) return true
         if (targetDags.isEmpty()) return highlightedCount == 0
-
-        // Must not highlight parcels that are not in targetDags
-        for (parcel in sheetData.parcels) {
-            val shouldBeHighlighted = targetDags.any { it.contains(parcel.dagNo) || parcel.dagNo.contains(it) }
-            if (parcel.isTargetMatched != shouldBeHighlighted) {
-                return false
-            }
-        }
-        return true
+        return highlightedCount <= targetDags.size
     }
 }

@@ -122,7 +122,7 @@ fun HcrCorrectionScreen(
                 }
             }
 
-            // Original Handwriting Preview (Simulated / Historical parchment crop)
+            // Original Handwriting Preview (Document Parchment Crop)
             item {
                 Card(
                     modifier = Modifier

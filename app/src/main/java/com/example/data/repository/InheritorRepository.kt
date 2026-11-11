@@ -105,12 +105,9 @@ class InheritorRepository(
     }
 
     /**
-     * Ensures the provided 8 heir certificates from Goali, Kaitala (South), Nabinagar, Brahmanbaria
-     * are seeded and persisted into the Room Database as the permanent Master Dataset.
-     *
-     * @param forceReset If true, refreshes the database records even if already present.
+     * Persists provided certificates and heirs into Room database.
      */
-    suspend fun seedMasterDatasetIfEmpty(
+    suspend fun persistMasterCertificatesList(
         masterCertificates: List<WarishCertificate>,
         forceReset: Boolean = false
     ) = withContext(Dispatchers.IO) {

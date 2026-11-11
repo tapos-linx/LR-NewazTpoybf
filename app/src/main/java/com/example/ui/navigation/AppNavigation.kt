@@ -14,41 +14,28 @@ import com.example.ui.screens.camera.CameraCaptureScreen
 import com.example.ui.screens.camera.CameraCaptureViewModel
 import com.example.ui.screens.detail.DocumentDetailScreen
 import com.example.ui.screens.detail.DocumentDetailViewModel
-import com.example.ui.screens.gallery.RecordGalleryScreen
-import com.example.ui.screens.home.HomeScreen
 import com.example.ui.screens.home.HomeViewModel
-import com.example.ui.screens.records.CapturedRecordsScreen
-import com.example.ui.screens.saf.SafImportScreen
-import com.example.ui.screens.saf.SafImportViewModel
+import com.example.ui.screens.main.MainScaffoldScreen
 import com.example.ui.screens.tesseract.TesseractSetupScreen
 import com.example.ui.screens.tesseract.TesseractSetupViewModel
-import com.example.ui.screens.atlas.AtlasTimelineScreen
-import com.example.ui.screens.hcr.HcrCorrectionScreen
-import com.example.ui.screens.hcr.HcrCorrectionViewModel
-import com.example.ui.screens.matcher.WarishMatcherScreen
-import com.example.ui.screens.matcher.WarishMatcherViewModel
-import com.example.ui.screens.ocr.LandRecordGeminiScreen
-import com.example.ui.screens.ocr.LandRecordGeminiViewModel
-import com.example.ui.screens.tasks.TaskManagerScreen
-import com.example.ui.screens.upload.BulkUploadScreen
-import com.example.ui.screens.drive.GoogleDriveInjectScreen
-import com.example.ui.screens.drive.GoogleDriveInjectViewModel
 
 object Destinations {
     const val HOME = "home"
-    const val TASK_MANAGER = "task_manager"
+    const val DETAIL = "detail/{documentId}"
+    const val CAMERA = "camera"
+    const val TESSERACT = "tesseract_setup"
+
+    // Merged routes (for backward compatibility in tests and legacy callers)
     const val CAPTURED_RECORDS = "captured_records"
     const val GALLERY = "gallery"
     const val BULK_UPLOAD = "bulk_upload"
     const val WARISH_MATCHER = "warish_matcher"
     const val HCR = "hcr_correction"
     const val ATLAS = "atlas_timeline"
-    const val DETAIL = "detail/{documentId}"
-    const val CAMERA = "camera"
     const val SAF_IMPORT = "saf_import"
-    const val TESSERACT = "tesseract_setup"
     const val GEMINI_OCR = "gemini_ocr"
     const val GOOGLE_DRIVE_INJECT = "google_drive_inject"
+    const val EXTRACTION_QUEUE = "extraction_queue"
 
     fun detailRoute(documentId: String) = "detail/$documentId"
 }
@@ -64,98 +51,138 @@ fun AppNavigation(
         navController = navController,
         startDestination = Destinations.HOME
     ) {
+        // Tab 0: Home (Main 5-tab scaffold)
         composable(Destinations.HOME) {
             val homeViewModel: HomeViewModel = viewModel()
-            HomeScreen(
-                viewModel = homeViewModel,
+            MainScaffoldScreen(
+                homeViewModel = homeViewModel,
                 onNavigateToDetail = { docId ->
                     navController.navigate(Destinations.detailRoute(docId))
                 },
                 onNavigateToCamera = {
                     navController.navigate(Destinations.CAMERA)
-                },
-                onNavigateToSafImport = {
-                    navController.navigate(Destinations.SAF_IMPORT)
                 },
                 onNavigateToTesseract = {
                     navController.navigate(Destinations.TESSERACT)
                 },
-                onNavigateToCapturedRecords = {
-                    navController.navigate(Destinations.CAPTURED_RECORDS)
-                },
-                onNavigateToGallery = {
-                    navController.navigate(Destinations.GALLERY)
-                },
-                onNavigateToBulkUpload = {
-                    navController.navigate(Destinations.BULK_UPLOAD)
-                },
-                onNavigateToWarishMatcher = {
-                    navController.navigate(Destinations.WARISH_MATCHER)
-                },
-                onNavigateToHcr = {
-                    navController.navigate(Destinations.HCR)
-                },
-                onNavigateToAtlas = {
-                    navController.navigate(Destinations.ATLAS)
-                },
-                onNavigateToGeminiOcr = {
-                    navController.navigate(Destinations.GEMINI_OCR)
-                },
-                onNavigateToTaskManager = {
-                    navController.navigate(Destinations.TASK_MANAGER)
-                },
-                onNavigateToGoogleDrive = {
-                    navController.navigate(Destinations.GOOGLE_DRIVE_INJECT)
-                }
+                initialTab = 0
             )
         }
 
-        composable(Destinations.TASK_MANAGER) {
-            TaskManagerScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onPrimaryTaskClick = { navController.navigate(Destinations.WARISH_MATCHER) },
-                onSecondaryTaskClick = { navController.navigate(Destinations.GEMINI_OCR) }
+        // Merged Route: Import / Queue / Bulk Upload / Google Drive (Opens Tab 1: Import)
+        composable(Destinations.EXTRACTION_QUEUE) {
+            val homeViewModel: HomeViewModel = viewModel()
+            MainScaffoldScreen(
+                homeViewModel = homeViewModel,
+                onNavigateToDetail = { docId -> navController.navigate(Destinations.detailRoute(docId)) },
+                onNavigateToCamera = { navController.navigate(Destinations.CAMERA) },
+                onNavigateToTesseract = { navController.navigate(Destinations.TESSERACT) },
+                initialTab = 1
             )
         }
 
+        composable(Destinations.SAF_IMPORT) {
+            val homeViewModel: HomeViewModel = viewModel()
+            MainScaffoldScreen(
+                homeViewModel = homeViewModel,
+                onNavigateToDetail = { docId -> navController.navigate(Destinations.detailRoute(docId)) },
+                onNavigateToCamera = { navController.navigate(Destinations.CAMERA) },
+                onNavigateToTesseract = { navController.navigate(Destinations.TESSERACT) },
+                initialTab = 1
+            )
+        }
+
+        composable(Destinations.BULK_UPLOAD) {
+            val homeViewModel: HomeViewModel = viewModel()
+            MainScaffoldScreen(
+                homeViewModel = homeViewModel,
+                onNavigateToDetail = { docId -> navController.navigate(Destinations.detailRoute(docId)) },
+                onNavigateToCamera = { navController.navigate(Destinations.CAMERA) },
+                onNavigateToTesseract = { navController.navigate(Destinations.TESSERACT) },
+                initialTab = 1
+            )
+        }
+
+        composable(Destinations.GOOGLE_DRIVE_INJECT) {
+            val homeViewModel: HomeViewModel = viewModel()
+            MainScaffoldScreen(
+                homeViewModel = homeViewModel,
+                onNavigateToDetail = { docId -> navController.navigate(Destinations.detailRoute(docId)) },
+                onNavigateToCamera = { navController.navigate(Destinations.CAMERA) },
+                onNavigateToTesseract = { navController.navigate(Destinations.TESSERACT) },
+                initialTab = 1
+            )
+        }
+
+        // Merged Route: Records / Gallery (Opens Tab 2: Records)
         composable(Destinations.CAPTURED_RECORDS) {
             val homeViewModel: HomeViewModel = viewModel()
-            CapturedRecordsScreen(
-                viewModel = homeViewModel,
-                onNavigateToDetail = { docId ->
-                    navController.navigate(Destinations.detailRoute(docId))
-                },
-                onNavigateToCamera = {
-                    navController.navigate(Destinations.CAMERA)
-                },
-                onNavigateToSafImport = {
-                    navController.navigate(Destinations.SAF_IMPORT)
-                },
-                onNavigateToGallery = {
-                    navController.navigate(Destinations.GALLERY)
-                },
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
+            MainScaffoldScreen(
+                homeViewModel = homeViewModel,
+                onNavigateToDetail = { docId -> navController.navigate(Destinations.detailRoute(docId)) },
+                onNavigateToCamera = { navController.navigate(Destinations.CAMERA) },
+                onNavigateToTesseract = { navController.navigate(Destinations.TESSERACT) },
+                initialTab = 2
             )
         }
 
         composable(Destinations.GALLERY) {
             val homeViewModel: HomeViewModel = viewModel()
-            RecordGalleryScreen(
-                viewModel = homeViewModel,
-                onNavigateToDetail = { docId ->
-                    navController.navigate(Destinations.detailRoute(docId))
-                },
-                onNavigateToCamera = {
-                    navController.navigate(Destinations.CAMERA)
-                },
-                onNavigateBack = {
-                    navController.popBackStack()
-                }
+            MainScaffoldScreen(
+                homeViewModel = homeViewModel,
+                onNavigateToDetail = { docId -> navController.navigate(Destinations.detailRoute(docId)) },
+                onNavigateToCamera = { navController.navigate(Destinations.CAMERA) },
+                onNavigateToTesseract = { navController.navigate(Destinations.TESSERACT) },
+                initialTab = 2
             )
         }
 
+        // Merged Route: Analysis (Warish Matcher & Atlas) (Opens Tab 3: Analysis)
+        composable(Destinations.WARISH_MATCHER) {
+            val homeViewModel: HomeViewModel = viewModel()
+            MainScaffoldScreen(
+                homeViewModel = homeViewModel,
+                onNavigateToDetail = { docId -> navController.navigate(Destinations.detailRoute(docId)) },
+                onNavigateToCamera = { navController.navigate(Destinations.CAMERA) },
+                onNavigateToTesseract = { navController.navigate(Destinations.TESSERACT) },
+                initialTab = 3
+            )
+        }
+
+        composable(Destinations.ATLAS) {
+            val homeViewModel: HomeViewModel = viewModel()
+            MainScaffoldScreen(
+                homeViewModel = homeViewModel,
+                onNavigateToDetail = { docId -> navController.navigate(Destinations.detailRoute(docId)) },
+                onNavigateToCamera = { navController.navigate(Destinations.CAMERA) },
+                onNavigateToTesseract = { navController.navigate(Destinations.TESSERACT) },
+                initialTab = 3
+            )
+        }
+
+        composable(Destinations.GEMINI_OCR) {
+            val homeViewModel: HomeViewModel = viewModel()
+            MainScaffoldScreen(
+                homeViewModel = homeViewModel,
+                onNavigateToDetail = { docId -> navController.navigate(Destinations.detailRoute(docId)) },
+                onNavigateToCamera = { navController.navigate(Destinations.CAMERA) },
+                onNavigateToTesseract = { navController.navigate(Destinations.TESSERACT) },
+                initialTab = 1
+            )
+        }
+
+        composable(Destinations.HCR) {
+            val homeViewModel: HomeViewModel = viewModel()
+            MainScaffoldScreen(
+                homeViewModel = homeViewModel,
+                onNavigateToDetail = { docId -> navController.navigate(Destinations.detailRoute(docId)) },
+                onNavigateToCamera = { navController.navigate(Destinations.CAMERA) },
+                onNavigateToTesseract = { navController.navigate(Destinations.TESSERACT) },
+                initialTab = 3
+            )
+        }
+
+        // Core Sub-Screens
         composable(
             route = Destinations.DETAIL,
             arguments = listOf(navArgument("documentId") { type = NavType.StringType })
@@ -189,81 +216,11 @@ fun AppNavigation(
             )
         }
 
-        composable(Destinations.SAF_IMPORT) {
-            val safViewModel: SafImportViewModel = viewModel()
-            SafImportScreen(
-                viewModel = safViewModel,
-                onNavigateBack = { navController.popBackStack() },
-                onProcessingFinished = {
-                    navController.popBackStack()
-                },
-                onNavigateToGoogleDrive = {
-                    navController.navigate(Destinations.GOOGLE_DRIVE_INJECT)
-                }
-            )
-        }
-
-        composable(Destinations.BULK_UPLOAD) {
-            val safViewModel: SafImportViewModel = viewModel()
-            BulkUploadScreen(
-                viewModel = safViewModel,
-                onNavigateBack = { navController.popBackStack() },
-                onUploadComplete = {
-                    navController.navigate(Destinations.GALLERY) {
-                        popUpTo(Destinations.HOME)
-                    }
-                }
-            )
-        }
-
-        composable(Destinations.WARISH_MATCHER) {
-            val matcherViewModel: WarishMatcherViewModel = viewModel()
-            WarishMatcherScreen(
-                viewModel = matcherViewModel,
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
-        composable(Destinations.HCR) {
-            val hcrViewModel: HcrCorrectionViewModel = viewModel()
-            HcrCorrectionScreen(
-                viewModel = hcrViewModel,
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
-        composable(Destinations.ATLAS) {
-            AtlasTimelineScreen(
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
         composable(Destinations.TESSERACT) {
             val tesseractViewModel: TesseractSetupViewModel = viewModel()
             TesseractSetupScreen(
                 viewModel = tesseractViewModel,
                 onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
-        composable(Destinations.GEMINI_OCR) {
-            val geminiViewModel: LandRecordGeminiViewModel = viewModel()
-            LandRecordGeminiScreen(
-                viewModel = geminiViewModel,
-                onNavigateBack = { navController.popBackStack() }
-            )
-        }
-
-        composable(Destinations.GOOGLE_DRIVE_INJECT) {
-            val driveViewModel: GoogleDriveInjectViewModel = viewModel()
-            GoogleDriveInjectScreen(
-                viewModel = driveViewModel,
-                onNavigateBack = { navController.popBackStack() },
-                onExtractionComplete = {
-                    navController.navigate(Destinations.GALLERY) {
-                        popUpTo(Destinations.HOME)
-                    }
-                }
             )
         }
     }

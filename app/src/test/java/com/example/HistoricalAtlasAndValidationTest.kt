@@ -12,6 +12,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
+import com.example.data.local.entity.LandDocumentEntity
+
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [36])
 class HistoricalAtlasAndValidationTest {
@@ -21,13 +23,71 @@ class HistoricalAtlasAndValidationTest {
 
     @Test
     fun testAtlasTimelineReconstruction() {
-        val timeline = atlasEngine.buildHistoricalTimeline("দিলকুশা", "৫০১")
+        val testRecords = listOf(
+            LandDocumentEntity(
+                id = "doc-cs",
+                title = "CS Khatian 101",
+                sourceFileName = "cs.pdf",
+                sourceFilePath = "/docs/cs.pdf",
+                sourceCategory = "CS",
+                classifiedType = "CS",
+                fileFormat = "PDF",
+                primaryMouza = "দিলকুশা",
+                primaryDagNo = "৫০১",
+                primaryKhatianNo = "১০১",
+                primaryAreaDecimals = "50.0"
+            ),
+            LandDocumentEntity(
+                id = "doc-sa",
+                title = "SA Khatian 102",
+                sourceFileName = "sa.pdf",
+                sourceFilePath = "/docs/sa.pdf",
+                sourceCategory = "SA",
+                classifiedType = "SA",
+                fileFormat = "PDF",
+                primaryMouza = "দিলকুশা",
+                primaryDagNo = "৫০১",
+                primaryKhatianNo = "১০২",
+                primaryAreaDecimals = "50.0"
+            ),
+            LandDocumentEntity(
+                id = "doc-rs",
+                title = "RS Khatian 103",
+                sourceFileName = "rs.pdf",
+                sourceFilePath = "/docs/rs.pdf",
+                sourceCategory = "RS",
+                classifiedType = "RS",
+                fileFormat = "PDF",
+                primaryMouza = "দিলকুশা",
+                primaryDagNo = "৫০১",
+                primaryKhatianNo = "১০৩",
+                primaryAreaDecimals = "50.0"
+            ),
+            LandDocumentEntity(
+                id = "doc-bs",
+                title = "BS Khatian 104",
+                sourceFileName = "bs.pdf",
+                sourceFilePath = "/docs/bs.pdf",
+                sourceCategory = "BS",
+                classifiedType = "BS",
+                fileFormat = "PDF",
+                primaryMouza = "দিলকুশা",
+                primaryDagNo = "৫০১",
+                primaryKhatianNo = "১০৪",
+                primaryAreaDecimals = "50.0"
+            )
+        )
+        val timeline = atlasEngine.buildHistoricalTimeline("দিলকুশা", "৫০১", testRecords)
         assertNotNull(timeline)
         assertEquals(4, timeline.size)
         assertEquals(SurveyEra.CS, timeline[0].era)
         assertEquals(SurveyEra.SA, timeline[1].era)
         assertEquals(SurveyEra.RS, timeline[2].era)
         assertEquals(SurveyEra.BS, timeline[3].era)
+
+        // Verify anti-hallucination rule: empty records = empty timeline
+        val emptyTimeline = atlasEngine.buildHistoricalTimeline("দিলকুশা", "৫০১", emptyList())
+        assertTrue(emptyTimeline.isEmpty())
     }
 
     @Test

@@ -8,7 +8,7 @@ import com.example.data.local.dao.InheritorDao
 import com.example.data.local.entity.InheritorEntity
 import com.example.data.local.entity.WarishCertificateEntity
 import com.example.data.repository.InheritorRepository
-import com.example.ui.screens.matcher.createPermanentMajorWarishList
+import com.example.fixtures.SyntheticTestData
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -44,11 +44,11 @@ class InheritorDatabaseTest {
 
     @Test
     fun testSeedAndPersistSixMasterWarishCertificatesAndAllHeirs() = runBlocking {
-        val masterList = createPermanentMajorWarishList()
+        val masterList = SyntheticTestData.createSyntheticMajorWarishList()
         assertEquals(8, masterList.size)
 
         // Seed master dataset into Room database
-        repository.seedMasterDatasetIfEmpty(masterList)
+        repository.persistMasterCertificatesList(masterList)
 
         // Verify Certificate count
         val certCount = dao.getCertificateCount()
@@ -95,8 +95,8 @@ class InheritorDatabaseTest {
 
     @Test
     fun testUpdateInheritorAndCertificateInDatabase() = runBlocking {
-        val masterList = createPermanentMajorWarishList()
-        repository.seedMasterDatasetIfEmpty(masterList)
+        val masterList = SyntheticTestData.createSyntheticMajorWarishList()
+        repository.persistMasterCertificatesList(masterList)
 
         // Query an inheritor from Certificate 1
         val inheritorsForCert1 = dao.getInheritorsForCertificateOnce("major-warish-1")
@@ -125,8 +125,8 @@ class InheritorDatabaseTest {
 
     @Test
     fun testSearchInheritorsByNameNidAndRelationship() = runBlocking {
-        val masterList = createPermanentMajorWarishList()
-        repository.seedMasterDatasetIfEmpty(masterList)
+        val masterList = SyntheticTestData.createSyntheticMajorWarishList()
+        repository.persistMasterCertificatesList(masterList)
 
         // Search by name
         val zakirResults = dao.searchInheritors("জাকির").first()
@@ -175,8 +175,8 @@ class InheritorDatabaseTest {
 
     @Test
     fun testRepositoryReactiveFlowStreaming() = runBlocking {
-        val masterList = createPermanentMajorWarishList()
-        repository.seedMasterDatasetIfEmpty(masterList)
+        val masterList = SyntheticTestData.createSyntheticMajorWarishList()
+        repository.persistMasterCertificatesList(masterList)
 
         val domainCerts = repository.masterCertificatesFlow.first()
         assertEquals(8, domainCerts.size)

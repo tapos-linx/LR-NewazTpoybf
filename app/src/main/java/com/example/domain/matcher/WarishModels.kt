@@ -6,50 +6,58 @@ import com.example.ui.theme.*
 import java.util.UUID
 
 /**
- * Six Forensic Evidence Tiers as mandated by LR-Newaz forensic standard.
+ * Four Canonical Forensic Evidence Statuses with Ladder Grades.
+ *
+ * CONFIRMED (Ladder A–B): matches original document image and was human-verified, or supported by 2+ independent documents.
+ * PROBABLE (Ladder C): strong match on name + dag + mouza, but a linking document is missing.
+ * CONFLICTED (Ladder D): contradictory names, father-name mismatch, shares > 1.000, area mismatch.
+ * UNVERIFIED (Ladder E–F): machine-extracted or single unverified source. Default for every newly extracted document.
+ * RECORD GAP: represented as a warning badge on a chain, not a tier.
  */
 enum class EvidenceTier(
     val code: String,
     val bengaliLabel: String,
     val description: String,
+    val ladderGrade: String,
     val badgeColor: Color
 ) {
-    VERIFIED(
-        code = "VERIFIED",
-        bengaliLabel = "যাচাইকৃত (Verified)",
-        description = "সরাসরি মূল নথির সাথে সম্পূর্ণ মিলে গেছে এবং জরিপ শৃঙ্খল অক্ষুণ্ন।",
+    CONFIRMED(
+        code = "CONFIRMED",
+        bengaliLabel = "নিশ্চিত (Confirmed)",
+        description = "মূল নথির ছবির সাথে সম্পূর্ণ মিলে গেছে এবং মানুষ দ্বারা যাচাইকৃত, অথবা ২+ স্বতন্ত্র নথি দ্বারা সমর্থিত।",
+        ladderGrade = "লেডার A–B",
         badgeColor = StatusVerified
-    ),
-    CORROBORATED(
-        code = "CORROBORATED",
-        bengaliLabel = "সমর্থিত (Corroborated)",
-        description = "একাধিক স্বতন্ত্র নথি বা দলিলের মাধ্যমে সমর্থনপ্রাপ্ত।",
-        badgeColor = StatusCorroborated
     ),
     PROBABLE(
         code = "PROBABLE",
         bengaliLabel = "সম্ভাব্য (Probable)",
-        description = "নাম, দাগ ও মৌজা অনুসারে জোরালো সম্ভাবনা বিদ্যমান।",
+        description = "নাম, দাগ ও মৌজা অনুসারে জোরালো সম্ভাবনা বিদ্যমান, কিন্তু সংযোগকারী নথি অনুপস্থিত।",
+        ladderGrade = "লেডার C",
         badgeColor = StatusProbable
     ),
-    POSSIBLE(
-        code = "POSSIBLE",
-        bengaliLabel = "সম্ভাবনাময় (Possible)",
-        description = "প্রাথমিক মিল রয়েছে কিন্তু পর্যাপ্ত সংযোগকারী প্রমাণ মেলেনি।",
-        badgeColor = StatusPossible
-    ),
-    RECORD_GAP(
-        code = "RECORD_GAP",
-        bengaliLabel = "রেকর্ড ফাঁক (Record Gap)",
-        description = "ধারাবাহিক জরিপের মধ্যবর্তী নথি (যেমন: এসএ বা আরএস) অনুপস্থিত।",
-        badgeColor = StatusRecordGap
-    ),
-    CONTRADICTORY(
-        code = "CONTRADICTORY",
-        bengaliLabel = "পরস্পরবিরোধী (Contradictory)",
-        description = "হিস্যা অতিরিক্ত, নাম অমিল বা দাগ নম্বরে সরাসরি সাংঘর্ষিক দাবি।",
+    CONFLICTED(
+        code = "CONFLICTED",
+        bengaliLabel = "সাংঘর্ষিক (Conflicted)",
+        description = "পরস্পরবিরোধী নাম, পিতার নাম অমিল, হিস্যা > ১.০০০ বা জমির পরিমাণে সরাসরি অমিল।",
+        ladderGrade = "লেডার D",
         badgeColor = StatusContradictory
-    )
+    ),
+    UNVERIFIED(
+        code = "UNVERIFIED",
+        bengaliLabel = "অযাচাইকৃত (Unverified)",
+        description = "স্বয়ংক্রিয় মেশিন দ্বারা এক্সট্র্যাক্টকৃত বা একক অযাচাইকৃত উৎস। সকল নতুন নথির ডিফল্ট অবস্থা।",
+        ladderGrade = "লেডার E–F",
+        badgeColor = StatusRecordGap
+    );
+
+    companion object {
+        // Legacy compatibility aliases
+        val VERIFIED get() = CONFIRMED
+        val CORROBORATED get() = CONFIRMED
+        val CONTRADICTORY get() = CONFLICTED
+        val POSSIBLE get() = UNVERIFIED
+        val RECORD_GAP get() = UNVERIFIED
+    }
 }
 
 /**
@@ -126,6 +134,7 @@ data class MatchedPlotResult(
     val confidenceScore: Float, // 0.0 to 100.0%
     val discrepancies: List<String>,
     val isContradictory: Boolean = false,
+    val hasRecordGap: Boolean = false,
     val notes: String = ""
 )
 
@@ -142,5 +151,6 @@ data class WarishMatchReport(
     val overallConfidenceScore: Float,
     val globalDiscrepancies: List<String>,
     val chainCompleteness: Map<String, Boolean>, // CS, SA, RS, BRS
+    val hasRecordGap: Boolean = false,
     val generatedTimestamp: Long = System.currentTimeMillis()
 )
