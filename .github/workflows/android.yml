@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   debug-and-test:
-    name: Android Unit Tests, Lint & Debug APK
+    name: Android Unit Tests, Robolectric, Lint & Verified Debug APK
     runs-on: ubuntu-24.04
     steps:
       - name: Checkout Repository
@@ -46,31 +46,80 @@ jobs:
           fi
           test -s debug.keystore
 
-      - name: Run Unit & Robolectric Tests
+      - name: 1 & 2. Run Android Unit & Robolectric Tests
         run: gradle :app:testDebugUnitTest --stacktrace
 
-      - name: Build Debug APK
+      - name: 3. Run Android Lint Checks
+        run: gradle :app:lintDebug --stacktrace
+
+      - name: 4. Build Debug APK
         run: gradle :app:assembleDebug --stacktrace
 
-      - name: Upload JUnit & Robolectric Test Reports
+      - name: 5, 6 & 7. Verify APK Exists, Validate Package/Signature & Generate SHA-256 Checksum
+        run: |
+          mkdir -p dist-ci
+          RAW_APK=$(ls app/build/outputs/apk/debug/*.apk | head -n 1)
+          test -s "$RAW_APK"
+          cp "$RAW_APK" dist-ci/Newaz-Land-Record-Extractor-debug.apk
+          test -s dist-ci/Newaz-Land-Record-Extractor-debug.apk
+
+          # Validate ZIP/APK structure and signature
+          unzip -t dist-ci/Newaz-Land-Record-Extractor-debug.apk > /dev/null
+          APKSIGNER_BIN=$(find $ANDROID_HOME/build-tools -name apksigner 2>/dev/null | sort -V | tail -n 1 || true)
+          if [ -n "$APKSIGNER_BIN" ]; then
+            "$APKSIGNER_BIN" verify --print-certs dist-ci/Newaz-Land-Record-Extractor-debug.apk
+          else
+            jarsigner -verify dist-ci/Newaz-Land-Record-Extractor-debug.apk > /dev/null
+          fi
+
+          AAPT2_BIN=$(find $ANDROID_HOME/build-tools -name aapt2 2>/dev/null | sort -V | tail -n 1 || true)
+          if [ -n "$AAPT2_BIN" ]; then
+            PKG_OUT=$("$AAPT2_BIN" dump packagename dist-ci/Newaz-Land-Record-Extractor-debug.apk)
+            echo "Verified APK package name: $PKG_OUT"
+            test "$PKG_OUT" = "com.aistudio.newazlrecord.kxrtpq"
+          fi
+
+          cd dist-ci
+          sha256sum Newaz-Land-Record-Extractor-debug.apk > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+
+      - name: Upload JUnit, Robolectric & Lint Reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: Android-Test-Reports
+          name: Android-Test-And-Lint-Reports
           path: |
             app/build/reports/tests/testDebugUnitTest/
             app/build/test-results/testDebugUnitTest/
+            app/build/reports/lint-results-debug.*
           if-no-files-found: warn
 
-      - name: Upload Debug APK Artifact
+      - name: 8. Upload Debug APK & SHA256SUMS Artifact
+        id: upload_debug_apk
         uses: actions/upload-artifact@v4
         with:
-          name: NewazLandRecord-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: Newaz-Land-Record-Extractor-debug-apk
+          path: |
+            dist-ci/Newaz-Land-Record-Extractor-debug.apk
+            dist-ci/SHA256SUMS.txt
           if-no-files-found: error
 
+      - name: 9. Publish Artifact Download URL & SHA-256 in Workflow Summary
+        if: always()
+        run: |
+          echo "### Android CI Build & Verification Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- **Package ID**: \`com.aistudio.newazlrecord.kxrtpq\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Workflow Run URL**: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Debug APK Artifact URL**: ${{ steps.upload_debug_apk.outputs.artifact-url }}" >> $GITHUB_STEP_SUMMARY
+          if [ -f dist-ci/SHA256SUMS.txt ]; then
+            echo "#### SHA-256 Checksum" >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`text" >> $GITHUB_STEP_SUMMARY
+            cat dist-ci/SHA256SUMS.txt >> $GITHUB_STEP_SUMMARY
+            echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          fi
+
   signed-release-build:
-    name: Build Signed Release APK & AAB (When Signing Secrets Present)
+    name: Optional Signed Release Build (When Signing Secrets Present)
     needs: debug-and-test
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
@@ -86,7 +135,7 @@ jobs:
             echo "has_secrets=true" >> $GITHUB_OUTPUT
           else
             echo "has_secrets=false" >> $GITHUB_OUTPUT
-            echo "ℹ️ Release signing secrets (RELEASE_KEYSTORE_BASE64, STORE_PASSWORD, KEY_PASSWORD) are not configured on this branch; skipping signed release build in CI." >> $GITHUB_STEP_SUMMARY
+            echo "ℹ️ Release signing secrets (RELEASE_KEYSTORE_BASE64, STORE_PASSWORD, KEY_PASSWORD) are not configured on this branch; skipping signed release build in ordinary CI." >> $GITHUB_STEP_SUMMARY
           fi
 
       - name: Checkout Repository

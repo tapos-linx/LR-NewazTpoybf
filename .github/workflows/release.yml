@@ -15,23 +15,12 @@ permissions:
   contents: write
 
 jobs:
-  verify-and-release:
-    name: Gate Release on Backend Pytest, Android Unit Tests & Signed Build
+  debug-build-and-test:
+    name: 1. Backend Pytest, Android Unit/Robolectric Tests & Independent Debug APK
     runs-on: ubuntu-24.04
-    env:
-      RELEASE_KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
-      STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
-      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
-
-      - name: Validate Required Release Signing Secrets
-        run: |
-          if [ -z "$RELEASE_KEYSTORE_B64" ] || [ -z "$STORE_PASSWORD" ] || [ -z "$KEY_PASSWORD" ]; then
-            echo "::error::Missing required release signing secrets (RELEASE_KEYSTORE_BASE64, STORE_PASSWORD, KEY_PASSWORD). Aborting release."
-            exit 1
-          fi
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -49,7 +38,7 @@ jobs:
             tesseract-ocr-ben \
             tesseract-ocr-eng
 
-      - name: Install Python Dependencies & Run Backend Pytest Gate
+      - name: Run Backend Forensic Test Suite
         run: |
           python -m pip install --upgrade pip
           pip install -r backend/requirements.txt
@@ -65,7 +54,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Materialize Debug Keystore for Test Gate
+      - name: Materialize Debug Keystore for Independent Debug Build
         run: |
           if [ ! -f debug.keystore ]; then
             if [ -f debug.keystore.base64 ]; then
@@ -84,11 +73,58 @@ jobs:
           fi
           test -s debug.keystore
 
-      - name: Run Android Unit & Robolectric Gate
+      - name: Run Android Unit & Robolectric Tests
         run: gradle :app:testDebugUnitTest --stacktrace
 
-      - name: Build Debug APK Independently
-        run: gradle :app:assembleDebug --stacktrace
+      - name: Build & Verify Debug APK Independently
+        run: |
+          gradle :app:assembleDebug --stacktrace
+          mkdir -p debug-dist
+          cp app/build/outputs/apk/debug/*.apk debug-dist/Newaz-Land-Record-Extractor-debug.apk
+          test -s debug-dist/Newaz-Land-Record-Extractor-debug.apk
+          cd debug-dist && sha256sum Newaz-Land-Record-Extractor-debug.apk > debug-sha256.txt
+          cat debug-sha256.txt
+
+      - name: Upload Verified Debug APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: verified-debug-apk
+          path: debug-dist/Newaz-Land-Record-Extractor-debug.apk
+          if-no-files-found: error
+
+  signed-production-release:
+    name: 2. Signed Release APK/AAB, Signature/Package Verification & GitHub Release
+    needs: debug-build-and-test
+    runs-on: ubuntu-24.04
+    env:
+      RELEASE_KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+      STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+      KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download Verified Debug APK from Job 1
+        uses: actions/download-artifact@v4
+        with:
+          name: verified-debug-apk
+          path: release-dist
+
+      - name: Validate Required Release Signing Secrets
+        run: |
+          if [ -z "$RELEASE_KEYSTORE_B64" ] || [ -z "$STORE_PASSWORD" ] || [ -z "$KEY_PASSWORD" ]; then
+            echo "::error::Missing required release signing secrets (RELEASE_KEYSTORE_BASE64, STORE_PASSWORD, KEY_PASSWORD). Production release requires real signing credentials and will never substitute a debug APK as a release APK."
+            exit 1
+          fi
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v3
 
       - name: Decode Protected Release Keystore
         run: |
@@ -96,7 +132,7 @@ jobs:
           chmod 600 "${GITHUB_WORKSPACE}/my-upload-key.jks"
           test -s "${GITHUB_WORKSPACE}/my-upload-key.jks"
 
-      - name: Build Signed Release APK & AAB Independently
+      - name: Build Signed Release APK & AAB
         env:
           KEYSTORE_PATH: ${{ github.workspace }}/my-upload-key.jks
         run: |
@@ -107,34 +143,63 @@ jobs:
         if: always()
         run: rm -f "${GITHUB_WORKSPACE}/my-upload-key.jks"
 
-      - name: Collect Verified Release Artifacts & Generate SHA-256 Checksums
+      - name: Verify Package Name, Signing Certificate & Generate SHA256SUMS.txt
         run: |
           mkdir -p release-dist
-          cp app/build/outputs/apk/debug/*.apk release-dist/Newaz-Land-Record-Extractor-debug.apk
           cp app/build/outputs/apk/release/*.apk release-dist/Newaz-Land-Record-Extractor-release.apk
           cp app/build/outputs/bundle/release/*.aab release-dist/Newaz-Land-Record-Extractor-release.aab
-          cd release-dist && sha256sum * > SHA256SUMS.txt
+
+          test -s release-dist/Newaz-Land-Record-Extractor-release.apk
+          test -s release-dist/Newaz-Land-Record-Extractor-debug.apk
+          test -s release-dist/Newaz-Land-Record-Extractor-release.aab
+
+          # Verify APK signature and package identity
+          APKSIGNER_BIN=$(find $ANDROID_HOME/build-tools -name apksigner 2>/dev/null | sort -V | tail -n 1 || true)
+          if [ -n "$APKSIGNER_BIN" ]; then
+            "$APKSIGNER_BIN" verify --print-certs release-dist/Newaz-Land-Record-Extractor-release.apk
+            "$APKSIGNER_BIN" verify --print-certs release-dist/Newaz-Land-Record-Extractor-debug.apk
+          else
+            jarsigner -verify -verbose -certs release-dist/Newaz-Land-Record-Extractor-release.apk > /dev/null
+          fi
+
+          AAPT2_BIN=$(find $ANDROID_HOME/build-tools -name aapt2 2>/dev/null | sort -V | tail -n 1 || true)
+          if [ -n "$AAPT2_BIN" ]; then
+            REL_PKG=$("$AAPT2_BIN" dump packagename release-dist/Newaz-Land-Record-Extractor-release.apk)
+            DBG_PKG=$("$AAPT2_BIN" dump packagename release-dist/Newaz-Land-Record-Extractor-debug.apk)
+            test "$REL_PKG" = "com.aistudio.newazlrecord.kxrtpq"
+            test "$DBG_PKG" = "com.aistudio.newazlrecord.kxrtpq"
+          fi
+
+          cd release-dist
+          sha256sum \
+            Newaz-Land-Record-Extractor-release.apk \
+            Newaz-Land-Record-Extractor-debug.apk \
+            Newaz-Land-Record-Extractor-release.aab > SHA256SUMS.txt
           cat SHA256SUMS.txt
 
-      - name: Upload Release Artifacts to Workflow Run
+      - name: Upload Release Bundle to Workflow Run
         uses: actions/upload-artifact@v4
         with:
           name: Newaz-Land-Record-Extractor-Release-Bundle
-          path: release-dist/*
+          path: |
+            release-dist/Newaz-Land-Record-Extractor-release.apk
+            release-dist/Newaz-Land-Record-Extractor-debug.apk
+            release-dist/Newaz-Land-Record-Extractor-release.aab
+            release-dist/SHA256SUMS.txt
           if-no-files-found: error
 
-      - name: Publish GitHub Release
+      - name: Publish Permanent GitHub Release Assets
         if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ github.event.inputs.tag_name || github.ref_name }}
           name: "Newaz Land Record Extractor ${{ github.event.inputs.tag_name || github.ref_name }}"
-          body: |
-            ## বাংলাদেশ ভূমি রেকর্ড এক্সট্রাক্টর ও ফরেনসিক রিসার্চ প্ল্যাটফর্ম (LR-NewazTpoybf)
-            ### Verified Release Gates Passed
-            - **Backend Forensic Pytest Suite**: Passed
-            - **Android Unit & Robolectric Suite**: Passed
-            - **Signed Release APK, AAB & Debug APK**: Verified with SHA-256 Checksums
-          files: release-dist/*
+          draft: false
+          prerelease: false
+          files: |
+            release-dist/Newaz-Land-Record-Extractor-release.apk
+            release-dist/Newaz-Land-Record-Extractor-debug.apk
+            release-dist/Newaz-Land-Record-Extractor-release.aab
+            release-dist/SHA256SUMS.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

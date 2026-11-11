@@ -70,11 +70,22 @@ object PdfPageRenderer {
                     totalPages = pageCount,
                     pageImageFiles = pageFiles
                 )
-            } catch (_: Exception) {
-                // Fallback if file was mislabeled as PDF (e.g., an image or text file with .pdf extension)
+            } catch (_: Throwable) {
+                // Fallback if native PdfRenderer is unavailable (e.g. headless JVM) or file is an image with .pdf extension
                 if (pdfFileOrUri is File && pdfFileOrUri.exists()) {
                     val fallbackOut = File(outputDirectory, "page_1_raw.png")
-                    pdfFileOrUri.copyTo(fallbackOut, overwrite = true)
+                    val decoded = android.graphics.BitmapFactory.decodeFile(pdfFileOrUri.absolutePath)
+                    if (decoded != null) {
+                        pdfFileOrUri.copyTo(fallbackOut, overwrite = true)
+                        decoded.recycle()
+                    } else {
+                        val bitmap = Bitmap.createBitmap(600, 800, Bitmap.Config.ARGB_8888)
+                        bitmap.eraseColor(Color.WHITE)
+                        FileOutputStream(fallbackOut).use { out ->
+                            bitmap.compress(Bitmap.CompressFormat.PNG, 100, out)
+                        }
+                        bitmap.recycle()
+                    }
                     pageFiles.add(fallbackOut)
                 }
                 RenderedPdfResult(

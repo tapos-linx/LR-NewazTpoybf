@@ -13,7 +13,7 @@ from typing import Any, Callable, Dict
 try:
     from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
     from fastapi.middleware.cors import CORSMiddleware
-    from fastapi.responses import JSONResponse, StreamingResponse
+    from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
     from pydantic import BaseModel, Field
     HAS_FASTAPI = True
 except ImportError:
@@ -26,12 +26,20 @@ except ImportError:
             self.detail = detail
 
     class UploadFile:  # type: ignore
-        def __init__(self, filename: str = "", content: bytes = b""):
+        def __init__(self, filename: str = "", content: bytes = b"", content_type: str = "application/octet-stream"):
             self.filename = filename
             self._content = content
+            self.content_type = content_type
+            self._pos = 0
 
-        async def read(self) -> bytes:
-            return self._content
+        async def read(self, size: int = -1) -> bytes:
+            if size < 0:
+                data = self._content[self._pos:]
+                self._pos = len(self._content)
+                return data
+            data = self._content[self._pos:self._pos + size]
+            self._pos += len(data)
+            return data
 
     def File(default: Any = None, **kwargs: Any) -> Any:  # type: ignore
         return default
@@ -50,11 +58,16 @@ except ImportError:
             self.status_code = status_code
             self.content = content
 
+    class HTMLResponse:  # type: ignore
+        def __init__(self, content: str = "", status_code: int = 200):
+            self.content = content
+            self.status_code = status_code
+
     class APIRouter:  # type: ignore
         def __init__(self, *args: Any, **kwargs: Any):
             self.routes = []
 
-        def get(self, path: str, **kwargs: Any) -> Callable[[ Any], Any]:
+        def get(self, path: str, **kwargs: Any) -> Callable[[Any], Any]:
             def decorator(fn: Any) -> Any:
                 self.routes.append(("GET", path, fn))
                 return fn

@@ -451,13 +451,28 @@ class SafFolderScanner(private val context: Context) {
                 )
             }
         } else if (doc.isFile) {
-            val name = doc.name ?: "unnamed"
-            val ext = name.substringAfterLast('.', "").lowercase()
+            val rawName = doc.name ?: "unnamed"
+            val docMime = doc.type
+            val rawExt = rawName.substringAfterLast('.', "").lowercase()
+            val ext = when {
+                rawExt in supportedExtensions -> rawExt
+                docMime == "application/zip" || docMime == "application/x-zip-compressed" || docMime == "application/x-zip" -> "zip"
+                docMime == "application/pdf" -> "pdf"
+                docMime?.contains("png") == true -> "png"
+                docMime?.contains("webp") == true -> "webp"
+                docMime?.contains("tiff") == true -> "tiff"
+                docMime?.startsWith("image/") == true -> "jpg"
+                docMime == "text/csv" -> "csv"
+                docMime == "application/json" -> "json"
+                docMime == "text/plain" -> "txt"
+                else -> rawExt
+            }
+            val effectiveName = if (rawName.contains('.') || ext.isBlank()) rawName else "$rawName.$ext"
 
             if (ext == "zip") {
                 val extractedCount = unpackZipUri(
                     zipUri = doc.uri,
-                    zipName = name,
+                    zipName = effectiveName,
                     parentFolder = parentName,
                     supportedOut = supportedOut,
                     zeroBytesOut = zeroBytesOut,
@@ -468,9 +483,9 @@ class SafFolderScanner(private val context: Context) {
                 if (extractedCount == 0 && corruptOut.isEmpty()) {
                     addDiscoveredItem(
                         uri = doc.uri,
-                        name = name,
+                        name = effectiveName,
                         parentName = parentName,
-                        mimeType = doc.type,
+                        mimeType = docMime,
                         size = doc.length(),
                         ext = ext,
                         supportedOut = supportedOut,
@@ -482,9 +497,9 @@ class SafFolderScanner(private val context: Context) {
             } else if (ext in supportedExtensions) {
                 addDiscoveredItem(
                     uri = doc.uri,
-                    name = name,
+                    name = effectiveName,
                     parentName = parentName,
-                    mimeType = doc.type,
+                    mimeType = docMime,
                     size = doc.length(),
                     ext = ext,
                     supportedOut = supportedOut,

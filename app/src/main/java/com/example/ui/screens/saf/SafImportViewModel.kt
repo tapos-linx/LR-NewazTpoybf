@@ -4,9 +4,14 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.data.local.entity.DocumentSourceType
 import com.example.data.repository.LandRecordRepository
+import com.example.domain.drive.GoogleDriveManager
 import com.example.domain.export.ExportFormat
 import com.example.domain.export.ReportExportManager
+import com.example.domain.ingestion.DesktopPairingSession
+import com.example.domain.ingestion.DocumentImportManager
+import com.example.domain.saf.DiscoveredFile
 import com.example.domain.saf.FolderScanSummary
 import com.example.domain.saf.SafFolderScanner
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -14,9 +19,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import java.io.File
+import java.util.UUID
 
 data class SafImportUiState(
     val isScanning: Boolean = false,
+    val isDownloadingDrive: Boolean = false,
     val isProcessingBatch: Boolean = false,
     val isExporting: Boolean = false,
     val scanSummary: FolderScanSummary? = null,
@@ -25,32 +33,86 @@ data class SafImportUiState(
     val processingFileName: String = "",
     val errorMessage: String? = null,
     val statusMessage: String? = null,
-    val processedCount: Int = 0
+    val processedCount: Int = 0,
+    val lastSourceLabel: String = "",
+    val desktopPairingSession: DesktopPairingSession? = null,
+    val isSyncingDesktopCompanion: Boolean = false
 )
 
 class SafImportViewModel(application: Application) : AndroidViewModel(application) {
 
     private val scanner = SafFolderScanner(application)
     private val repository = LandRecordRepository(application)
+    private val importManager = DocumentImportManager(application)
 
     private val _uiState = MutableStateFlow(SafImportUiState())
     val uiState: StateFlow<SafImportUiState> = _uiState.asStateFlow()
 
-    fun scanFolderTree(treeUri: Uri) {
+    private fun mergeSummaries(existing: FolderScanSummary?, incoming: FolderScanSummary): FolderScanSummary {
+        if (existing == null) return incoming
+        val existingHashes = existing.supportedFiles.mapNotNull { it.sha256Hash.ifBlank { null } }.toSet()
+        val existingUris = existing.supportedFiles.map { it.uri }.toSet()
+
+        val newSupported = incoming.supportedFiles.map { file ->
+            if ((file.sha256Hash.isNotBlank() && file.sha256Hash in existingHashes) || file.uri in existingUris) {
+                file.copy(isDuplicate = true)
+            } else {
+                file
+            }
+        }
+        val combinedSupported = existing.supportedFiles + newSupported
+        val combinedZero = existing.zeroByteFiles + incoming.zeroByteFiles
+        val combinedDuplicates = existing.duplicateFiles + newSupported.filter { it.isDuplicate }
+        val combinedCorrupt = existing.corruptOrRejectedFiles + incoming.corruptOrRejectedFiles
+        val combinedCategories = combinedSupported.groupBy { it.parentFolder }.mapValues { it.value.size }
+
+        return FolderScanSummary(
+            rootUri = incoming.rootUri,
+            totalFilesFound = existing.totalFilesFound + incoming.totalFilesFound,
+            supportedFiles = combinedSupported,
+            zeroByteFiles = combinedZero,
+            duplicateFiles = combinedDuplicates,
+            corruptOrRejectedFiles = combinedCorrupt,
+            ignoredFilesCount = existing.ignoredFilesCount + incoming.ignoredFilesCount,
+            categoriesFound = combinedCategories
+        )
+    }
+
+    fun clearScanSummary() {
+        _uiState.value = _uiState.value.copy(
+            scanSummary = null,
+            errorMessage = null,
+            statusMessage = null,
+            processedCount = 0
+        )
+    }
+
+    fun scanFolderTree(
+        treeUri: Uri,
+        sourceLabel: String = "লোকাল ডিস্ক / ফোল্ডার (SAF)",
+        onScanned: ((List<DiscoveredFile>) -> Unit)? = null
+    ) {
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 isScanning = true,
                 errorMessage = null,
-                statusMessage = null
+                lastSourceLabel = sourceLabel,
+                statusMessage = "$sourceLabel স্ক্যান হচ্ছে..."
             )
 
             try {
-                val summary = scanner.scanDirectory(treeUri)
+                val summary = importManager.importFromFolderTree(
+                    treeUri = treeUri,
+                    sourceType = if (sourceLabel.contains("ড্রাইভ")) DocumentSourceType.GOOGLE_DRIVE else DocumentSourceType.ANDROID_SAF_FOLDER
+                )
+                val merged = mergeSummaries(_uiState.value.scanSummary, summary)
+                val validNewFiles = summary.supportedFiles.filter { !it.isDuplicate }
                 _uiState.value = _uiState.value.copy(
                     isScanning = false,
-                    scanSummary = summary,
-                    statusMessage = "ফোল্ডার স্ক্যান সম্পন্ন: ${summary.supportedFiles.size} টি সমর্থিত ফাইল পাওয়া গেছে"
+                    scanSummary = merged,
+                    statusMessage = "$sourceLabel স্ক্যান সম্পন্ন: ${summary.supportedFiles.size} টি সমর্থিত নথি পাওয়া গেছে (মোট প্রস্তুত: ${merged.supportedFiles.count { !it.isDuplicate }})"
                 )
+                onScanned?.invoke(validNewFiles)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isScanning = false,
@@ -60,30 +122,207 @@ class SafImportViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    /**
-     * Scans multiple individual files (PDF, JPG, PNG, TIFF, ZIP, CSV, JSON, TXT)
-     * selected from PC local disk or phone memory (Downloads / SD Card).
-     */
-    fun scanMultipleFiles(uris: List<Uri>) {
+    fun scanMultipleFiles(
+        uris: List<Uri>,
+        sourceCategory: String = "পিসি_ও_ফোন_বাল্ক_আপলোড",
+        onScanned: ((List<DiscoveredFile>) -> Unit)? = null
+    ) {
         if (uris.isEmpty()) return
         viewModelScope.launch {
             _uiState.value = _uiState.value.copy(
                 isScanning = true,
                 errorMessage = null,
-                statusMessage = null
+                lastSourceLabel = sourceCategory,
+                statusMessage = "$sourceCategory থেকে ${uris.size} টি আইটেম স্ক্যান ও আনপ্যাক হচ্ছে..."
             )
 
             try {
-                val summary = scanner.scanMultipleUris(uris, defaultCategory = "পিসি_ও_ফোন_বাল্ক_আপলোড")
+                val summary = scanner.scanMultipleUris(uris, defaultCategory = sourceCategory)
+                importManager.importRepository.enqueueDiscoveredFiles(
+                    files = summary.supportedFiles,
+                    sourceType = when {
+                        sourceCategory.contains("ড্রাইভ") -> DocumentSourceType.GOOGLE_DRIVE
+                        sourceCategory.contains("জিপ") -> DocumentSourceType.LOCAL_ZIP_ARCHIVE
+                        else -> DocumentSourceType.ANDROID_SAF_FILE
+                    }
+                )
+                val merged = mergeSummaries(_uiState.value.scanSummary, summary)
+                val validNewFiles = summary.supportedFiles.filter { !it.isDuplicate }
                 _uiState.value = _uiState.value.copy(
                     isScanning = false,
-                    scanSummary = summary,
-                    statusMessage = "ফাইল যাচাই সম্পন্ন: ${summary.supportedFiles.size} টি নথি প্রক্রিয়াকরণের জন্য প্রস্তুত"
+                    scanSummary = merged,
+                    statusMessage = "ফাইল ও জিপ যাচাই সম্পন্ন: নতুন ${validNewFiles.size} টি নথি যুক্ত হয়েছে (মোট প্রস্তুত: ${merged.supportedFiles.count { !it.isDuplicate }})"
                 )
+                onScanned?.invoke(validNewFiles)
             } catch (e: Exception) {
                 _uiState.value = _uiState.value.copy(
                     isScanning = false,
                     errorMessage = "ফাইল স্ক্যান করতে সমস্যা: ${e.localizedMessage}"
+                )
+            }
+        }
+    }
+
+    fun injectFromDriveUrl(
+        urlOrId: String,
+        onScanned: ((List<DiscoveredFile>) -> Unit)? = null
+    ) {
+        val driveId = GoogleDriveManager.extractDriveId(urlOrId)
+        if (driveId == null) {
+            _uiState.value = _uiState.value.copy(
+                errorMessage = "সঠিক গুগল ড্রাইভ লিঙ্ক বা ফাইল আইডি দিন (যেমন: https://drive.google.com/file/d/...)"
+            )
+            return
+        }
+
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isDownloadingDrive = true,
+                errorMessage = null,
+                lastSourceLabel = "গুগল ড্রাইভ লিঙ্ক ($driveId)",
+                statusMessage = "গুগল ড্রাইভ (${GoogleDriveManager.DEFAULT_DRIVE_ACCOUNT_EMAIL}) থেকে ডাউনলোড হচ্ছে..."
+            )
+            try {
+                val destFile = File(
+                    getApplication<Application>().cacheDir,
+                    "drive_bulk_${UUID.randomUUID()}.bin"
+                )
+                GoogleDriveManager.downloadDriveFile(driveId, destFile) { bytes ->
+                    val mb = bytes / (1024f * 1024f)
+                    _uiState.value = _uiState.value.copy(
+                        statusMessage = "গুগল ড্রাইভ থেকে ডাউনলোড হচ্ছে: ${"%.1f".format(mb)} MB"
+                    )
+                }
+
+                val isZip = try {
+                    destFile.inputStream().use { ins ->
+                        val header = ByteArray(4)
+                        val read = ins.read(header)
+                        read == 4 && header[0] == 0x50.toByte() && header[1] == 0x4B.toByte()
+                    }
+                } catch (_: Exception) {
+                    false
+                }
+
+                val finalFile = if (isZip) {
+                    val zipFile = File(destFile.parentFile, "${destFile.nameWithoutExtension}.zip")
+                    destFile.renameTo(zipFile)
+                    zipFile
+                } else {
+                    val pdfOrImgFile = File(destFile.parentFile, "${destFile.nameWithoutExtension}.pdf")
+                    destFile.renameTo(pdfOrImgFile)
+                    pdfOrImgFile
+                }
+
+                _uiState.value = _uiState.value.copy(
+                    isDownloadingDrive = false,
+                    isScanning = true,
+                    statusMessage = "ডাউনলোড সম্পন্ন! ফাইল ও জিপ ফোল্ডার বিশ্লেষণ চলছে..."
+                )
+
+                val summary = scanner.scanMultipleUris(
+                    listOf(Uri.fromFile(finalFile)),
+                    defaultCategory = "গুগল_ড্রাইভ_লিঙ্ক"
+                )
+                importManager.importRepository.enqueueDiscoveredFiles(
+                    files = summary.supportedFiles,
+                    sourceType = DocumentSourceType.GOOGLE_DRIVE
+                )
+                val merged = mergeSummaries(_uiState.value.scanSummary, summary)
+                val validNewFiles = summary.supportedFiles.filter { !it.isDuplicate }
+
+                _uiState.value = _uiState.value.copy(
+                    isScanning = false,
+                    scanSummary = merged,
+                    statusMessage = "গুগল ড্রাইভ লিঙ্ক থেকে ${validNewFiles.size} টি নথি বাল্ক তালিকায় যুক্ত হয়েছে"
+                )
+                onScanned?.invoke(validNewFiles)
+            } catch (e: Exception) {
+                _uiState.value = _uiState.value.copy(
+                    isDownloadingDrive = false,
+                    isScanning = false,
+                    errorMessage = "গুগল ড্রাইভ ডাউনলোড ব্যর্থ: ${e.localizedMessage}"
+                )
+            }
+        }
+    }
+
+    /**
+     * Connects to the FastAPI Desktop/Web Companion server to pair or pull uploaded computer files.
+     */
+    fun createDesktopPairing(backendBaseUrl: String, apiKey: String? = null) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isSyncingDesktopCompanion = true,
+                errorMessage = null,
+                statusMessage = "পিসি ওয়েব কম্প্যানিয়ন পেয়ারিং টোকেন তৈরি হচ্ছে..."
+            )
+            val res = importManager.desktopCompanionSource.createPairingSession(backendBaseUrl, apiKey)
+            if (res.isSuccess) {
+                val session = res.getOrThrow()
+                _uiState.value = _uiState.value.copy(
+                    isSyncingDesktopCompanion = false,
+                    desktopPairingSession = session,
+                    statusMessage = "পেয়ারিং প্রস্তুত! কোড: ${session.pairingCode} (${session.companionUploadUrl})"
+                )
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    isSyncingDesktopCompanion = false,
+                    errorMessage = "পেয়ারিং ব্যর্থ: ${res.exceptionOrNull()?.localizedMessage}"
+                )
+            }
+        }
+    }
+
+    fun syncDesktopCompanionFiles(
+        backendBaseUrl: String,
+        pairingToken: String,
+        apiKey: String? = null,
+        onSynced: ((List<DiscoveredFile>) -> Unit)? = null
+    ) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(
+                isSyncingDesktopCompanion = true,
+                errorMessage = null,
+                statusMessage = "পিসি ওয়েব কম্প্যানিয়ন থেকে আপলোডকৃত নথি যাচাই ও ডাউনলোড হচ্ছে..."
+            )
+            val res = importManager.syncFromDesktopCompanion(backendBaseUrl, pairingToken, apiKey)
+            if (res.isSuccess) {
+                val queuedItems = res.getOrThrow()
+                val discovered = queuedItems.map { q ->
+                    DiscoveredFile(
+                        uri = Uri.parse(q.sourceUri),
+                        name = q.originalFilename,
+                        parentFolder = q.parentFolder,
+                        mimeType = q.mimeType,
+                        sizeBytes = q.fileSizeBytes,
+                        isZeroByte = q.isZeroByte,
+                        format = q.fileFormat,
+                        classifiedType = com.example.data.model.LandRecordType.fromFolderOrName(q.originalFilename),
+                        sha256Hash = q.sha256,
+                        isDuplicate = q.isDuplicate
+                    )
+                }
+                val incomingSummary = FolderScanSummary(
+                    rootUri = discovered.firstOrNull()?.uri ?: Uri.EMPTY,
+                    totalFilesFound = discovered.size,
+                    supportedFiles = discovered,
+                    zeroByteFiles = discovered.filter { it.isZeroByte },
+                    duplicateFiles = discovered.filter { it.isDuplicate },
+                    ignoredFilesCount = 0,
+                    categoriesFound = mapOf(DocumentSourceType.DESKTOP_COMPANION to discovered.size)
+                )
+                val merged = mergeSummaries(_uiState.value.scanSummary, incomingSummary)
+                _uiState.value = _uiState.value.copy(
+                    isSyncingDesktopCompanion = false,
+                    scanSummary = merged,
+                    statusMessage = "পিসি কম্প্যানিয়ন থেকে ${discovered.size} টি আসল নথি যাচাইসহ যুক্ত হয়েছে"
+                )
+                onSynced?.invoke(discovered.filter { !it.isDuplicate })
+            } else {
+                _uiState.value = _uiState.value.copy(
+                    isSyncingDesktopCompanion = false,
+                    errorMessage = "পিসি কম্প্যানিয়ন সিঙ্ক ব্যর্থ: ${res.exceptionOrNull()?.localizedMessage}"
                 )
             }
         }
@@ -130,9 +369,6 @@ class SafImportViewModel(application: Application) : AndroidViewModel(applicatio
         return ReportExportManager.suggestFileName(null, format)
     }
 
-    /**
-     * One-click Mass Download of all land records directly into Phone Memory (Downloads/NewazLandRecords/).
-     */
     fun downloadAllToPhoneMemory(
         format: ExportFormat,
         onComplete: (Boolean, String) -> Unit
@@ -201,9 +437,6 @@ class SafImportViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    /**
-     * Saves all land records (ZIP archive, PDF dossier, or CSV/JSON) to user-selected PC Local Disk / SAF URI.
-     */
     fun saveAllToSafUri(
         uri: Uri,
         format: ExportFormat,

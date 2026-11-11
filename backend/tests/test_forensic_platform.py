@@ -1,11 +1,13 @@
 """
 Automated Forensic Verification Suite for AI Modules, SQLite Persistence,
-ZIP Security, and Multi-Format Exports.
+Backend Bulk Upload Pipeline, ZIP Security, and Multi-Format Exports.
 Compatible with both `python3 -m unittest` and `pytest`.
 """
 
 from __future__ import annotations
 
+import asyncio
+import hashlib
 import io
 import json
 import os
@@ -17,7 +19,17 @@ from ai.gis.map_detector import CadastralMapDetector
 from ai.hcr.recognizer import BanglaHandwritingRecognizer
 from ai.matcher.inheritance_matcher import EvidenceTier, InheritancePlotMatcher
 from ai.ocr.pipeline import ZeroLossOcrEngine
-from backend.api.bulk_upload import classify_document_by_filename, is_safe_zip_member_path
+from backend.api import bulk_upload
+from backend.api.bulk_upload import (
+    MAX_SINGLE_FILE_BYTES,
+    bulk_ingest_documents,
+    classify_document_by_filename,
+    create_desktop_pairing_session,
+    download_uploaded_document,
+    get_companion_session_files,
+    get_upload_status,
+    is_safe_zip_member_path,
+)
 from backend.api.export import (
     ExportPayload,
     _generate_csv_bytes,
@@ -26,10 +38,31 @@ from backend.api.export import (
     _generate_xlsx_bytes,
     sanitize_export_filename,
 )
-from backend.db.models import ForensicArchiveStore
+from backend.compat import HTTPException, UploadFile
+from backend.db.models import ForensicArchiveStore, archive_store
+
+
+class _SimpleUploadFile:
+    def __init__(self, filename: str, content: bytes, content_type: str = "application/pdf"):
+        self.filename = filename
+        self._content = content
+        self.content_type = content_type
+        self._offset = 0
+
+    async def read(self, size: int = -1) -> bytes:
+        if size < 0:
+            chunk = self._content[self._offset:]
+            self._offset = len(self._content)
+            return chunk
+        chunk = self._content[self._offset:self._offset + size]
+        self._offset += len(chunk)
+        return chunk
 
 
 class TestForensicPlatform(unittest.TestCase):
+
+    def setUp(self) -> None:
+        archive_store.reset_for_testing()
 
     def test_ocr_never_fabricates_on_empty_or_unconfigured_input(self) -> None:
         engine = ZeroLossOcrEngine()
@@ -53,7 +86,6 @@ class TestForensicPlatform(unittest.TestCase):
         self.assertEqual(parsed["fields"]["mouza"]["value"], "কাশিমপুর")
         self.assertEqual(parsed["fields"]["khatian_no"]["normalized_digits"], "403")
         self.assertEqual(parsed["fields"]["dag_no"]["normalized_digits"], "118")
-        # Missing fields MUST be None, never fabricated defaults like 'সাভার' or '১২৪'
         self.assertIsNone(parsed["fields"]["upazila"])
         self.assertIsNone(parsed["fields"]["jl_no"])
         self.assertIsNone(parsed["fields"]["area_decimals"])
@@ -66,7 +98,6 @@ class TestForensicPlatform(unittest.TestCase):
         self.assertEqual(empty["transcribed_text"], "")
         self.assertEqual(empty["tokens"], [])
 
-        # Without model weights or valid image, must not invent 'মোঃ আব্দুল করিম' or '৫১২/৩'
         raw_res = recognizer.recognize_handwriting(b"fake_bytes")
         self.assertIn(raw_res["status"], {"NOT_CONFIGURED", "UNSUPPORTED_FORMAT", "NEEDS_MANUAL_REVIEW"})
         self.assertNotIn("আব্দুল করিম", raw_res["transcribed_text"])
@@ -115,7 +146,6 @@ class TestForensicPlatform(unittest.TestCase):
     def test_inheritance_matcher_exact_rational_arithmetic_and_tiers(self) -> None:
         matcher = InheritancePlotMatcher()
 
-        # 1. Exact 1/8 + 7/16 + 7/16 = 1.000
         cert = {
             "certificate_no": "WAR-2026-01",
             "deceased_name": "মৃত সফর আলী",
@@ -127,13 +157,11 @@ class TestForensicPlatform(unittest.TestCase):
                 {"name": "সিরাজ আলী", "relation": "পুত্র", "share": "7/16"},
             ],
         }
-        # Empty survey records -> NO_MATCH (never invents Khatian 104 or 512)
         empty_res = matcher.reconcile_inheritance_chain(cert, [])
         self.assertEqual(empty_res["status"], "NO_MATCH")
         self.assertEqual(empty_res["overall_evidence_tier"], EvidenceTier.NO_MATCH)
         self.assertEqual(empty_res["matched_khatians_count"], 0)
 
-        # Complete CS + SA + RS chain with father & Mouza corroboration
         surveys = [
             {
                 "survey_type": era,
@@ -151,12 +179,10 @@ class TestForensicPlatform(unittest.TestCase):
             }
             for era in ("CS", "SA", "RS")
         ]
-        # Without human_verified -> CORROBORATED (never auto-VERIFIED)
         unverified_res = matcher.reconcile_inheritance_chain(cert, surveys, human_verified=False)
         self.assertEqual(unverified_res["overall_evidence_tier"], EvidenceTier.CORROBORATED)
         self.assertTrue(unverified_res["requires_manual_review"])
 
-        # With human_verified=True -> VERIFIED
         verified_res = matcher.reconcile_inheritance_chain(cert, surveys, human_verified=True)
         self.assertEqual(verified_res["overall_evidence_tier"], EvidenceTier.VERIFIED)
         self.assertFalse(verified_res["requires_manual_review"])
@@ -172,7 +198,7 @@ class TestForensicPlatform(unittest.TestCase):
 
         with tempfile.TemporaryDirectory() as tmpdir:
             db_path = os.path.join(tmpdir, "test_archive.sqlite3")
-            store = ForensicArchiveStore(db_path=db_path)
+            store = ForensicArchiveStore(db_path=db_path, storage_dir=os.path.join(tmpdir, "uploads"))
             store.record_upload_item(
                 batch_id="b1",
                 filename="cs_101.pdf",
@@ -196,10 +222,116 @@ class TestForensicPlatform(unittest.TestCase):
                 notes="Verified against original CS volume",
             )
             self.assertEqual(corr["verification_status"], "VERIFIED_BY_HUMAN")
+            self.assertEqual(corr["confidence_after"], 0.52)
             history = store.get_hcr_corrections("doc-1")
             self.assertEqual(len(history), 1)
             self.assertEqual(history[0]["original_ocr_text"], "সফর আল [Unclear]")
             self.assertEqual(history[0]["corrected_text"], "সফর আলী")
+
+    def test_backend_single_and_multi_file_upload_sha256_duplicate_and_retrieval(self) -> None:
+        pdf_bytes_1 = b"%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n"
+        pdf_bytes_2 = b"%PDF-1.4\n2 0 obj\n<< /Type /Pages >>\nendobj\n%%EOF\n"
+        expected_sha_1 = hashlib.sha256(pdf_bytes_1).hexdigest()
+
+        # 1. Single-file upload
+        res_single = asyncio.run(
+            bulk_ingest_documents(
+                files=[_SimpleUploadFile("সিএস_খতিয়ান_১০১.pdf", pdf_bytes_1, "application/pdf")]  # type: ignore
+            )
+        )
+        self.assertEqual(res_single["summary"]["accepted_count"], 1)
+        accepted_doc = res_single["accepted_files"][0]
+        self.assertEqual(accepted_doc["sha256"], expected_sha_1)
+        doc_id = accepted_doc["id"]
+
+        # 2. Persistent status & file retrieval
+        status_info = asyncio.run(get_upload_status(doc_id))
+        self.assertTrue(status_info["file_persisted_on_disk"])
+        self.assertEqual(status_info["sha256"], expected_sha_1)
+
+        dl_resp = asyncio.run(download_uploaded_document(doc_id))
+        self.assertEqual(dl_resp.headers["X-Content-SHA256"], expected_sha_1)
+
+        # 3. Multi-file upload + Duplicate detection
+        res_multi = asyncio.run(
+            bulk_ingest_documents(
+                files=[
+                    _SimpleUploadFile("সিএস_খতিয়ান_১০১_কপি.pdf", pdf_bytes_1, "application/pdf"),  # type: ignore
+                    _SimpleUploadFile("আরএস_খতিয়ান_২০২.pdf", pdf_bytes_2, "application/pdf"),  # type: ignore
+                ]
+            )
+        )
+        self.assertEqual(res_multi["summary"]["accepted_count"], 1)
+        self.assertEqual(res_multi["summary"]["duplicate_skipped_count"], 1)
+
+    def test_backend_invalid_mime_oversized_and_unauthorized_uploads(self) -> None:
+        # 1. Invalid MIME / extension
+        res_bad_mime = asyncio.run(
+            bulk_ingest_documents(
+                files=[
+                    _SimpleUploadFile("malware.exe", b"MZ\x90\x00", "application/x-msdownload"),  # type: ignore
+                    _SimpleUploadFile("spoofed.pdf", b"%PDF-1.4", "application/x-sh"),  # type: ignore
+                ]
+            )
+        )
+        self.assertEqual(res_bad_mime["summary"]["unsupported_rejected_count"], 2)
+
+        # 2. Oversized file rejection
+        orig_max = bulk_upload.MAX_SINGLE_FILE_BYTES
+        try:
+            bulk_upload.MAX_SINGLE_FILE_BYTES = 128
+            res_oversize = asyncio.run(
+                bulk_ingest_documents(
+                    files=[_SimpleUploadFile("huge_record.pdf", b"%PDF-" + (b"A" * 512), "application/pdf")]  # type: ignore
+                )
+            )
+            self.assertEqual(res_oversize["summary"]["corrupt_or_security_rejected_count"], 1)
+            self.assertEqual(res_oversize["corrupt_or_security_rejected"][0]["status"], "REJECTED_OVERSIZE")
+        finally:
+            bulk_upload.MAX_SINGLE_FILE_BYTES = orig_max
+
+        # 3. Unauthorized pairing token rejection + Authorized Desktop Companion session
+        with self.assertRaises(HTTPException) as ctx:
+            asyncio.run(
+                bulk_ingest_documents(
+                    files=[_SimpleUploadFile("test.pdf", b"%PDF-1.4", "application/pdf")],  # type: ignore
+                    pairing_token="invalid_forged_token_xyz",
+                )
+            )
+        self.assertEqual(ctx.exception.status_code, 401)
+
+        pair_session = asyncio.run(create_desktop_pairing_session())
+        valid_code = pair_session["pairing_code"]
+        res_paired = asyncio.run(
+            bulk_ingest_documents(
+                files=[_SimpleUploadFile("desktop_khatian.pdf", b"%PDF-1.4\n%%EOF", "application/pdf")],  # type: ignore
+                pairing_token=valid_code,
+            )
+        )
+        self.assertEqual(res_paired["summary"]["accepted_count"], 1)
+        session_files = asyncio.run(get_companion_session_files(valid_code))
+        self.assertEqual(session_files["total_files"], 1)
+
+        # 4. API key authorization helper
+        from backend.main import verify_api_key_if_configured
+        old_key = os.environ.get("FORENSIC_API_KEY")
+        try:
+            os.environ["FORENSIC_API_KEY"] = "secret_forensic_key_999"
+            ok_unauth, code_unauth, _ = verify_api_key_if_configured({}, "/api/v1/upload/ingest")
+            self.assertFalse(ok_unauth)
+            self.assertEqual(code_unauth, 401)
+
+            ok_auth, code_auth, _ = verify_api_key_if_configured(
+                {"X-API-Key": "secret_forensic_key_999"},
+                "/api/v1/upload/ingest",
+            )
+            self.assertTrue(ok_auth)
+            self.assertEqual(code_auth, 200)
+        finally:
+            if old_key is None:
+                os.environ.pop("FORENSIC_API_KEY", None)
+            else:
+                os.environ["FORENSIC_API_KEY"] = old_key
 
     def test_multi_format_exports_csv_json_xlsx_pdf(self) -> None:
         self.assertEqual(sanitize_export_filename("../../evil/name"), "evil_name")

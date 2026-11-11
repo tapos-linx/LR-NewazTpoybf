@@ -11,10 +11,42 @@ from __future__ import annotations
 
 import os
 import shutil
-from typing import Any, Dict
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from typing import Any, Callable, Dict
+
+try:
+    from fastapi import FastAPI, Request
+    from fastapi.middleware.cors import CORSMiddleware
+    from fastapi.responses import JSONResponse
+except ImportError:
+    from backend.compat import JSONResponse  # type: ignore
+
+    class Request:  # type: ignore
+        headers: Dict[str, str] = {}
+        url: Any = None
+
+    class CORSMiddleware:  # type: ignore
+        pass
+
+    class FastAPI:  # type: ignore
+        def __init__(self, **kwargs: Any):
+            self.kwargs = kwargs
+            self.routers = []
+
+        def add_middleware(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+        def middleware(self, *args: Any, **kwargs: Any) -> Callable[[Any], Any]:
+            def decorator(fn: Any) -> Any:
+                return fn
+            return decorator
+
+        def include_router(self, router: Any, **kwargs: Any) -> None:
+            self.routers.append((router, kwargs))
+
+        def get(self, *args: Any, **kwargs: Any) -> Callable[[Any], Any]:
+            def decorator(fn: Any) -> Any:
+                return fn
+            return decorator
 
 from ai.hcr.recognizer import HAS_CV2, HAS_PYTESSERACT
 from backend.api import bulk_upload, export, gis, hcr, matcher
@@ -35,7 +67,7 @@ app = FastAPI(
     title="Bangladesh Land Record Forensic AI Engine",
     description=(
         "Production-grade OCR/HCR, Historical Survey Chain (CS->SA->RS->BS), "
-        "Warish Inheritance Hissa Validator, and Cadastral GIS API"
+        "Warish Inheritance Hissa Validator, Cadastral GIS API, and Desktop Companion Upload Service"
     ),
     version="2.2.0",
 )
@@ -45,8 +77,28 @@ app.add_middleware(
     allow_origins=ALLOWED_ORIGINS,
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type", "X-API-Key"],
+    allow_headers=["Authorization", "Content-Type", "X-API-Key", "X-Pairing-Token"],
 )
+
+
+def verify_api_key_if_configured(headers: Dict[str, str], path: str = "") -> tuple[bool, int, str]:
+    """
+    Pure helper for API key verification used by both FastAPI HTTP middleware
+    and direct unit tests.
+    """
+    configured_key = os.environ.get("FORENSIC_API_KEY", "").strip()
+    if not configured_key or path in ("/health", "/docs", "/openapi.json", "/api/v1/upload/companion"):
+        return True, 200, "OK"
+
+    lower_headers = {k.lower(): v for k, v in headers.items()}
+    supplied_key = (lower_headers.get("x-api-key") or "").strip()
+    auth_header = (lower_headers.get("authorization") or "").strip()
+    if auth_header.startswith("Bearer "):
+        supplied_key = auth_header.removeprefix("Bearer ").strip()
+
+    if supplied_key != configured_key:
+        return False, 401, "Unauthorized: valid X-API-Key or Bearer token required."
+    return True, 200, "OK"
 
 
 @app.middleware("http")
@@ -61,17 +113,12 @@ async def security_and_size_middleware(request: Request, call_next):
             )
 
     # 2. Enforce API key when FORENSIC_API_KEY is configured in environment
-    configured_key = os.environ.get("FORENSIC_API_KEY", "").strip()
-    if configured_key and request.url.path not in ("/health", "/docs", "/openapi.json"):
-        supplied_key = request.headers.get("X-API-Key") or ""
-        auth_header = request.headers.get("Authorization") or ""
-        if auth_header.startswith("Bearer "):
-            supplied_key = auth_header.removeprefix("Bearer ").strip()
-        if supplied_key != configured_key:
-            return JSONResponse(
-                status_code=401,
-                content={"detail": "Unauthorized: valid X-API-Key or Bearer token required."},
-            )
+    authorized, status_code, detail = verify_api_key_if_configured(dict(request.headers), request.url.path)
+    if not authorized:
+        return JSONResponse(
+            status_code=status_code,
+            content={"detail": detail},
+        )
 
     return await call_next(request)
 
@@ -95,6 +142,7 @@ async def health_check() -> Dict[str, Any]:
             "pytesseract_available": HAS_PYTESSERACT,
             "tesseract_binary_installed": tesseract_bin is not None,
             "sqlite_archive_connected": os.path.exists(archive_store.db_path),
+            "persistent_upload_storage_ready": os.path.isdir(archive_store.storage_dir),
             "queued_documents_count": queue_summary["total_queued_documents"],
         },
     }

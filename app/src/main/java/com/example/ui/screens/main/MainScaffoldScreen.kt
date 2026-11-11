@@ -43,8 +43,10 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.FolderZip
 import androidx.compose.material.icons.filled.GridView
 import androidx.compose.material.icons.filled.Home
+import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Map
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -149,46 +151,109 @@ fun MainScaffoldScreen(
     val safUiState by safViewModel.uiState.collectAsStateWithLifecycle()
     val warishViewModel: WarishMatcherViewModel = viewModel()
 
-    // SAF file picker for manual / mass file import (PDF, Images)
-    val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenMultipleDocuments()
-    ) { uris: List<Uri> ->
-        if (uris.isNotEmpty()) {
-            homeViewModel.importFilesFromUris(uris) { count ->
-                Toast.makeText(context, "$count টি নথি সফলভাবে আপলোড হয়েছে", Toast.LENGTH_SHORT).show()
-                uris.forEach { uri ->
-                    val fileName = uri.lastPathSegment?.substringAfterLast('/') ?: "imported_document"
-                    queueViewModel.addDocumentToQueue(title = fileName, category = "CS", uri = uri)
-                }
-            }
-        }
-    }
-
     val driveAccountUri = remember {
         GoogleDriveManager.buildDriveAccountRootUri(GoogleDriveManager.DEFAULT_DRIVE_ACCOUNT_EMAIL)
     }
 
-    // SAF directory picker for bulk folder scanning
+    // 1. Local Disk / Multi-file picker (PDF, JPG, PNG, TIFF, ZIP, CSV, JSON, TXT)
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            safViewModel.scanMultipleFiles(
+                uris = uris,
+                sourceCategory = "লোকাল_ডিস্ক_বাল্ক_ফাইল"
+            ) { discoveredFiles ->
+                queueViewModel.addDiscoveredFilesToQueue(discoveredFiles, autoStart = true)
+                Toast.makeText(
+                    context,
+                    "${discoveredFiles.size} টি নথি কিউতে যুক্ত ও নিষ্কাশন শুরু হয়েছে",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    // 2. Dedicated ZIP archive picker (Local Disk & Google Drive ZIPs)
+    val zipPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            safViewModel.scanMultipleFiles(
+                uris = uris,
+                sourceCategory = "জিপ_আর্কাইভ_আনপ্যাক"
+            ) { discoveredFiles ->
+                queueViewModel.addDiscoveredFilesToQueue(discoveredFiles, autoStart = true)
+                Toast.makeText(
+                    context,
+                    "জিপ ফোল্ডার থেকে ${discoveredFiles.size} টি নথি আনপ্যাক ও কিউতে যুক্ত হয়েছে",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    // 3. SAF directory picker for recursive local disk / SD card bulk folder scanning
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { treeUri: Uri? ->
         if (treeUri != null) {
-            safViewModel.scanFolderTree(treeUri)
-            Toast.makeText(context, "ফোল্ডার স্ক্যান শুরু হয়েছে...", Toast.LENGTH_SHORT).show()
+            safViewModel.scanFolderTree(
+                treeUri = treeUri,
+                sourceLabel = "লোকাল ফোল্ডার (SAF)"
+            ) { discoveredFiles ->
+                queueViewModel.addDiscoveredFilesToQueue(discoveredFiles, autoStart = true)
+                Toast.makeText(
+                    context,
+                    "ফোল্ডার থেকে ${discoveredFiles.size} টি নথি কিউতে যুক্ত হয়েছে",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
         }
     }
 
-    // Dedicated Google Drive SAF picker targeting tapos.cpl@gmail.com
+    // 4. Dedicated Google Drive Folder picker targeting tapos.cpl@gmail.com
     val drivePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { treeUri: Uri? ->
         if (treeUri != null) {
-            safViewModel.scanFolderTree(treeUri)
-            Toast.makeText(
-                context,
-                "গুগল ড্রাইভ (${GoogleDriveManager.DEFAULT_DRIVE_ACCOUNT_EMAIL}) স্ক্যান শুরু হয়েছে...",
-                Toast.LENGTH_SHORT
-            ).show()
+            safViewModel.scanFolderTree(
+                treeUri = treeUri,
+                sourceLabel = "গুগল ড্রাইভ ফোল্ডার (${GoogleDriveManager.DEFAULT_DRIVE_ACCOUNT_EMAIL})"
+            ) { discoveredFiles ->
+                queueViewModel.addDiscoveredFilesToQueue(discoveredFiles, autoStart = true)
+                Toast.makeText(
+                    context,
+                    "গুগল ড্রাইভ থেকে ${discoveredFiles.size} টি নথি কিউতে যুক্ত হয়েছে",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
+        }
+    }
+
+    // 5. Dedicated Google Drive Multi-Files / ZIP picker targeting tapos.cpl@gmail.com
+    val driveFilesLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val data = result.data
+        val uris = mutableListOf<Uri>()
+        data?.clipData?.let { clip ->
+            for (i in 0 until clip.itemCount) {
+                clip.getItemAt(i)?.uri?.let { uris.add(it) }
+            }
+        } ?: data?.data?.let { uris.add(it) }
+        if (uris.isNotEmpty()) {
+            safViewModel.scanMultipleFiles(
+                uris = uris,
+                sourceCategory = "গুগল_ড্রাইভ_ফাইল_ও_জিপ"
+            ) { discoveredFiles ->
+                queueViewModel.addDiscoveredFilesToQueue(discoveredFiles, autoStart = true)
+                Toast.makeText(
+                    context,
+                    "গুগল ড্রাইভ থেকে ${discoveredFiles.size} টি নথি কিউতে যুক্ত হয়েছে",
+                    Toast.LENGTH_SHORT
+                ).show()
+            }
         }
     }
 
@@ -292,15 +357,46 @@ fun MainScaffoldScreen(
                 )
                 1 -> ImportTabContent(
                     onNavigateToCamera = onNavigateToCamera,
-                    onLaunchFilePicker = { filePickerLauncher.launch(arrayOf("application/pdf", "image/*")) },
+                    onLaunchFilePicker = {
+                        filePickerLauncher.launch(
+                            arrayOf(
+                                "application/pdf",
+                                "image/*",
+                                "application/zip",
+                                "application/x-zip-compressed",
+                                "application/x-zip",
+                                "application/octet-stream",
+                                "*/*"
+                            )
+                        )
+                    },
+                    onLaunchZipPicker = {
+                        zipPickerLauncher.launch(
+                            arrayOf(
+                                "application/zip",
+                                "application/x-zip-compressed",
+                                "application/x-zip",
+                                "application/octet-stream",
+                                "*/*"
+                            )
+                        )
+                    },
                     onLaunchFolderPicker = { folderPickerLauncher.launch(null) },
                     onLaunchDrivePicker = {
                         Toast.makeText(
                             context,
-                            "গুগল ড্রাইভ খুলছে: ${GoogleDriveManager.DEFAULT_DRIVE_ACCOUNT_EMAIL}",
+                            "গুগল ড্রাইভ ফোল্ডার খুলছে: ${GoogleDriveManager.DEFAULT_DRIVE_ACCOUNT_EMAIL}",
                             Toast.LENGTH_SHORT
                         ).show()
                         drivePickerLauncher.launch(driveAccountUri)
+                    },
+                    onLaunchDriveFilesPicker = {
+                        Toast.makeText(
+                            context,
+                            "গুগল ড্রাইভ ফাইল ও জিপ খুলছে: ${GoogleDriveManager.DEFAULT_DRIVE_ACCOUNT_EMAIL}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        driveFilesLauncher.launch(GoogleDriveManager.createDriveMultiFilesPickerIntent())
                     },
                     queueViewModel = queueViewModel,
                     safViewModel = safViewModel
@@ -557,13 +653,19 @@ fun HomeTabContent(
 fun ImportTabContent(
     onNavigateToCamera: () -> Unit,
     onLaunchFilePicker: () -> Unit,
+    onLaunchZipPicker: () -> Unit = onLaunchFilePicker,
     onLaunchFolderPicker: () -> Unit,
     onLaunchDrivePicker: () -> Unit = onLaunchFolderPicker,
+    onLaunchDriveFilesPicker: () -> Unit = onLaunchFilePicker,
     queueViewModel: ExtractionQueueViewModel,
     safViewModel: SafImportViewModel
 ) {
+    val context = LocalContext.current
     val queueState by queueViewModel.uiState.collectAsStateWithLifecycle()
     val safState by safViewModel.uiState.collectAsStateWithLifecycle()
+    var driveLinkInput by remember { mutableStateOf("") }
+    var desktopServerUrlInput by remember { mutableStateOf("http://10.0.2.2:8000") }
+    var desktopPairingTokenInput by remember { mutableStateOf("") }
 
     LazyColumn(
         modifier = Modifier
@@ -574,13 +676,18 @@ fun ImportTabContent(
     ) {
         item {
             Text(
-                text = "নথি ইনপুট উৎস নির্বাচন করুন",
+                text = "নথি ইনপুট ও মাল্টি-সোর্স বাল্ক আপলোড",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold
             )
+            Text(
+                text = "লোকাল ডিস্ক, ফোল্ডার, জিপ আর্কাইভ (.zip), গুগল ড্রাইভ এবং পিসি ওয়েব কম্প্যানিয়ন থেকে একযোগে বহুসংখ্যক দলিল আমদানি করুন",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
 
-        // 4 Source Cards in a 2x2 Grid Layout
+        // Primary Source Cards in a 2x2 Grid Layout
         item {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(
@@ -597,8 +704,8 @@ fun ImportTabContent(
                         onClick = onNavigateToCamera
                     )
                     SourceActionCard(
-                        title = "ফাইল নির্বাচন",
-                        subtitle = "PDF, JPG, PNG, TIFF",
+                        title = "লোকাল ডিস্ক ফাইল",
+                        subtitle = "PDF, ছবি, ও বাল্ক ফাইল",
                         icon = Icons.Default.UploadFile,
                         color = MaterialTheme.colorScheme.secondary,
                         modifier = Modifier.weight(1f),
@@ -633,30 +740,429 @@ fun ImportTabContent(
             }
         }
 
-        // Live SAF Folder Scanning Status
-        if (safState.isScanning || safState.scanSummary != null) {
+        // Dedicated Bulk ZIP Folder, Google Drive & PC Companion Multi-Source Hub Card
+        item {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .testTag("bulk_multi_source_hub_card"),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
+                )
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.FolderZip,
+                            contentDescription = null,
+                            tint = Color(0xFFD97706),
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Column {
+                            Text(
+                                text = "জিপ ফোল্ডার (.ZIP), গুগল ড্রাইভ ও পিসি কম্প্যানিয়ন হাব",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "একাধিক জিপ ফোল্ডার আনপ্যাক, ড্রাইভ ফাইল, শেয়ার্ড লিংক বা পিসি হার্ডডিস্ক কম্প্যানিয়ন যুক্ত করুন",
+                                style = MaterialTheme.typography.bodySmall,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        FilledTonalButton(
+                            onClick = onLaunchZipPicker,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("btn_bulk_import_zip")
+                        ) {
+                            Icon(Icons.Default.FolderZip, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("জিপ ফোল্ডার (.zip)", fontSize = 11.sp)
+                        }
+
+                        FilledTonalButton(
+                            onClick = onLaunchDriveFilesPicker,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("btn_bulk_import_drive_files")
+                        ) {
+                            Icon(Icons.Default.CloudDownload, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("ড্রাইভ ফাইল / জিপ", fontSize = 11.sp)
+                        }
+                    }
+
+                    // Shared Google Drive Link / Folder or File ID Direct Bulk Import
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = driveLinkInput,
+                            onValueChange = { driveLinkInput = it },
+                            placeholder = {
+                                Text("গুগল ড্রাইভ শেয়ার্ড লিংক বা ফাইল/জিপ আইডি দিন...", fontSize = 11.sp)
+                            },
+                            leadingIcon = {
+                                Icon(Icons.Default.Link, contentDescription = null, modifier = Modifier.size(18.dp))
+                            },
+                            singleLine = true,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("input_bulk_drive_link")
+                        )
+
+                        Button(
+                            onClick = {
+                                if (driveLinkInput.isNotBlank()) {
+                                    safViewModel.injectFromDriveUrl(driveLinkInput) { discoveredFiles ->
+                                        queueViewModel.addDiscoveredFilesToQueue(
+                                            discoveredFiles,
+                                            sourceType = com.example.data.local.entity.DocumentSourceType.GOOGLE_DRIVE,
+                                            autoStart = true
+                                        )
+                                        Toast.makeText(
+                                            context,
+                                            "ড্রাইভ লিংক থেকে ${discoveredFiles.size} টি নথি যুক্ত হয়েছে",
+                                            Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                    driveLinkInput = ""
+                                }
+                            },
+                            enabled = driveLinkInput.isNotBlank() && !safState.isDownloadingDrive && !safState.isScanning,
+                            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF0F766E)),
+                            modifier = Modifier.testTag("btn_bulk_drive_link_import")
+                        ) {
+                            Icon(Icons.Default.Download, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("ইনজেক্ট", fontSize = 11.sp)
+                        }
+                    }
+
+                    // PC Hard Disk / Desktop Web Companion Pairing & Sync
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = desktopServerUrlInput,
+                            onValueChange = { desktopServerUrlInput = it },
+                            placeholder = { Text("পিসি সার্ভার URL (http://...)", fontSize = 10.sp) },
+                            singleLine = true,
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("input_desktop_companion_url")
+                        )
+                        OutlinedTextField(
+                            value = desktopPairingTokenInput,
+                            onValueChange = { desktopPairingTokenInput = it },
+                            placeholder = { Text("পেয়ারিং টোকেন/কোড", fontSize = 10.sp) },
+                            singleLine = true,
+                            modifier = Modifier
+                                .weight(0.8f)
+                                .testTag("input_desktop_pairing_token")
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                safViewModel.createDesktopPairing(desktopServerUrlInput)
+                            },
+                            enabled = !safState.isSyncingDesktopCompanion,
+                            modifier = Modifier.weight(1f).testTag("btn_pair_desktop_companion")
+                        ) {
+                            Text("পিসি পেয়ারিং কোড তৈরি", fontSize = 11.sp)
+                        }
+
+                        Button(
+                            onClick = {
+                                val tokenToUse = desktopPairingTokenInput.ifBlank {
+                                    safState.desktopPairingSession?.pairingToken.orEmpty()
+                                }
+                                if (tokenToUse.isNotBlank()) {
+                                    safViewModel.syncDesktopCompanionFiles(
+                                        backendBaseUrl = desktopServerUrlInput,
+                                        pairingToken = tokenToUse
+                                    ) { discoveredFiles ->
+                                        queueViewModel.addDiscoveredFilesToQueue(
+                                            discoveredFiles,
+                                            sourceType = com.example.data.local.entity.DocumentSourceType.DESKTOP_COMPANION,
+                                            autoStart = true
+                                        )
+                                    }
+                                } else {
+                                    Toast.makeText(context, "পেয়ারিং টোকেন বা কোড দিন", Toast.LENGTH_SHORT).show()
+                                }
+                            },
+                            enabled = !safState.isSyncingDesktopCompanion,
+                            modifier = Modifier.weight(1f).testTag("btn_sync_desktop_companion")
+                        ) {
+                            Text("পিসি ফাইল সিঙ্ক করুন", fontSize = 11.sp)
+                        }
+                    }
+
+                    safState.desktopPairingSession?.let { session ->
+                        Text(
+                            text = "পিসি আপলোড লিংক: ${session.companionUploadUrl} | কোড: ${session.pairingCode}",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontSize = 10.sp,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                }
+            }
+        }
+
+        // Live Multi-Source SAF / ZIP / Drive Scan & Batch Summary Card
+        if (safState.isScanning || safState.isDownloadingDrive || safState.isProcessingBatch || safState.scanSummary != null || safState.errorMessage != null) {
             item {
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("saf_bulk_summary_card"),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
-                    Column(modifier = Modifier.padding(14.dp)) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (safState.isScanning) {
-                                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("ফোল্ডার স্ক্যান হচ্ছে...", fontWeight = FontWeight.Bold)
-                            } else {
-                                Icon(Icons.Default.CheckCircle, contentDescription = null, tint = StatusVerified)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("ফোল্ডার স্ক্যান সম্পন্ন", fontWeight = FontWeight.Bold)
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
+                                if (safState.isScanning || safState.isDownloadingDrive || safState.isProcessingBatch) {
+                                    CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = when {
+                                            safState.isDownloadingDrive -> safState.statusMessage ?: "গুগল ড্রাইভ থেকে ডাউনলোড হচ্ছে..."
+                                            safState.isProcessingBatch -> "বাল্ক নিষ্কাশন চলছে (${safState.currentProcessingIndex}/${safState.totalToProcess}): ${safState.processingFileName}"
+                                            else -> safState.statusMessage ?: "ফোল্ডার ও জিপ স্ক্যান হচ্ছে..."
+                                        },
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                } else {
+                                    Icon(Icons.Default.CheckCircle, contentDescription = null, tint = StatusVerified)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = safState.statusMessage ?: "বাল্ক স্ক্যান সম্পন্ন",
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.bodyMedium
+                                    )
+                                }
+                            }
+
+                            if (!safState.isScanning && !safState.isProcessingBatch && safState.scanSummary != null) {
+                                IconButton(
+                                    onClick = { safViewModel.clearScanSummary() },
+                                    modifier = Modifier.size(28.dp).testTag("btn_clear_saf_summary")
+                                ) {
+                                    Icon(Icons.Default.Clear, contentDescription = "পরিষ্কার করুন", modifier = Modifier.size(16.dp))
+                                }
                             }
                         }
-                        safState.scanSummary?.let { summary ->
-                            Spacer(modifier = Modifier.height(4.dp))
+
+                        safState.errorMessage?.let { errMsg ->
                             Text(
-                                text = "মোট ফাইল: ${summary.totalFilesFound} | সমর্থিত দলিল: ${summary.supportedFiles.size}",
+                                text = errMsg,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+
+                        safState.scanSummary?.let { summary ->
+                            val nonDuplicateCount = summary.supportedFiles.count { !it.isDuplicate }
+                            val totalBytes = summary.supportedFiles.sumOf { it.sizeBytes }
+                            val sizeMb = String.format("%.2f", totalBytes / (1024.0 * 1024.0))
+                            Text(
+                                text = "মোট প্রাপ্ত ফাইল: ${summary.totalFilesFound} | সমর্থিত দলিল: ${summary.supportedFiles.size} ($sizeMb MB) | নতুন: $nonDuplicateCount | শূন্য-বাইট: ${summary.zeroByteFiles.size}",
                                 style = MaterialTheme.typography.bodySmall
+                            )
+
+                            if (summary.categoriesFound.isNotEmpty()) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                ) {
+                                    summary.categoriesFound.forEach { (folder, count) ->
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = MaterialTheme.colorScheme.primaryContainer
+                                        ) {
+                                            Text(
+                                                text = "$folder ($count)",
+                                                fontSize = 11.sp,
+                                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (!safState.isProcessingBatch && nonDuplicateCount > 0) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    OutlinedButton(
+                                        onClick = {
+                                            val validFiles = summary.supportedFiles.filter { !it.isDuplicate }
+                                            queueViewModel.addDiscoveredFilesToQueue(validFiles, autoStart = false)
+                                            Toast.makeText(
+                                                context,
+                                                "${validFiles.size} টি নথি কিউতে যোগ করা হয়েছে",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        },
+                                        modifier = Modifier.weight(1f).testTag("btn_enqueue_all_scanned")
+                                    ) {
+                                        Text("কিউতে রাখুন ($nonDuplicateCount)", fontSize = 11.sp)
+                                    }
+
+                                    Button(
+                                        onClick = {
+                                            val validFiles = summary.supportedFiles.filter { !it.isDuplicate }
+                                            queueViewModel.addDiscoveredFilesToQueue(validFiles, autoStart = true)
+                                            Toast.makeText(
+                                                context,
+                                                "$nonDuplicateCount টি নথির ধারাবাহিক নিষ্কাশন শুরু হয়েছে",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                        },
+                                        colors = ButtonDefaults.buttonColors(containerColor = StatusVerified),
+                                        modifier = Modifier.weight(1.2f).testTag("btn_extract_all_scanned")
+                                    ) {
+                                        Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                                        Spacer(modifier = Modifier.width(4.dp))
+                                        Text("সব নিষ্কাশন করুন ($nonDuplicateCount)", fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // Sequential Extraction Queue Section (Phase 4 Dashboard)
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "ধারাবাহিক নিষ্কাশন কিউ (Extraction Queue)",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.Bold
+                        )
+                        val queueSizeKb = (queueState.totalBytesSelected / 1024L).coerceAtLeast(0L)
+                        Text(
+                            text = "মোট: ${queueState.totalQueued} (${queueSizeKb} KB) | সম্পন্ন: ${queueState.completedCount} | ব্যর্থ: ${queueState.failedCount} | ডুপ্লিকেট: ${queueState.skippedDuplicateCount}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline
+                        )
+                    }
+
+                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        if (queueState.isRunning) {
+                            OutlinedButton(
+                                onClick = { queueViewModel.pauseExtraction() },
+                                modifier = Modifier.testTag("btn_pause_queue")
+                            ) {
+                                Icon(Icons.Default.Pause, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("বিরতি")
+                            }
+                        } else if (queueState.items.isNotEmpty()) {
+                            if (queueState.failedCount > 0) {
+                                OutlinedButton(
+                                    onClick = { queueViewModel.retryFailedImports() },
+                                    modifier = Modifier.testTag("btn_retry_failed_queue")
+                                ) {
+                                    Text("পুনঃচেষ্টা", fontSize = 11.sp)
+                                }
+                            }
+                            if (queueState.skippedDuplicateCount > 0) {
+                                OutlinedButton(
+                                    onClick = { queueViewModel.removeDuplicateFilesOnly() },
+                                    modifier = Modifier.testTag("btn_remove_duplicate_queue")
+                                ) {
+                                    Text("ডুপ্লিকেট সরান", fontSize = 11.sp)
+                                }
+                            }
+                            OutlinedButton(
+                                onClick = { queueViewModel.clearQueue() },
+                                modifier = Modifier.testTag("btn_clear_queue")
+                            ) {
+                                Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                            }
+                            Button(
+                                onClick = { queueViewModel.startSequentialExtraction() },
+                                modifier = Modifier.testTag("btn_start_queue")
+                            ) {
+                                Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text("শুরু করুন")
+                            }
+                        }
+                    }
+                }
+
+                // Queue Search (Bengali & English filename) & Survey Filter Chips
+                if (queueState.items.isNotEmpty()) {
+                    OutlinedTextField(
+                        value = queueState.searchQuery,
+                        onValueChange = { queueViewModel.updateSearchQuery(it) },
+                        placeholder = { Text("বাংলা বা ইংরেজি ফাইলের নাম ও মৌজা খুঁজুন...", fontSize = 11.sp) },
+                        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                        singleLine = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .testTag("input_queue_search")
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("ALL", "CS", "SA", "RS", "BRS", "DEEDS", "MUTATION").forEach { survey ->
+                            FilterChip(
+                                selected = queueState.selectedSurveyFilter == survey,
+                                onClick = { queueViewModel.updateSurveyFilter(survey) },
+                                label = { Text(survey, fontSize = 11.sp) },
+                                modifier = Modifier.testTag("chip_queue_filter_$survey")
                             )
                         }
                     }
@@ -664,52 +1170,13 @@ fun ImportTabContent(
             }
         }
 
-        // Sequential Extraction Queue Section
-        item {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column {
-                    Text(
-                        text = "ধারাবাহিক নিষ্কাশন কিউ (Extraction Queue)",
-                        style = MaterialTheme.typography.titleSmall,
-                        fontWeight = FontWeight.Bold
-                    )
-                    Text(
-                        text = "অপেক্ষমাণ: ${queueState.totalQueued} | সম্পন্ন: ${queueState.completedCount}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline
-                    )
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (queueState.isRunning) {
-                        OutlinedButton(
-                            onClick = { queueViewModel.pauseExtraction() },
-                            modifier = Modifier.testTag("btn_pause_queue")
-                        ) {
-                            Icon(Icons.Default.Pause, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("বিরতি")
-                        }
-                    } else if (queueState.items.isNotEmpty()) {
-                        Button(
-                            onClick = { queueViewModel.startSequentialExtraction() },
-                            modifier = Modifier.testTag("btn_start_queue")
-                        ) {
-                            Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(16.dp))
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text("শুরু করুন")
-                        }
-                    }
-                }
-            }
-        }
-
         // Queue Items List or Clean Empty State
-        if (queueState.items.isEmpty()) {
+        val displayQueueItems = if (queueState.searchQuery.isNotBlank() || queueState.selectedSurveyFilter != "ALL") {
+            queueState.filteredItems
+        } else {
+            queueState.items
+        }
+        if (displayQueueItems.isEmpty()) {
             item {
                 Card(
                     modifier = Modifier
@@ -731,7 +1198,7 @@ fun ImportTabContent(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         Text(
-                            text = "উপরের কার্ড চেপে ক্যামেরা, ফাইল বা ফোল্ডার থেকে নথি যুক্ত করুন।",
+                            text = "উপরের কার্ড চেপে লোকাল ডিস্ক, ফোল্ডার, জিপ আর্কাইভ বা গুগল ড্রাইভ থেকে নথি যুক্ত করুন।",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.outline
                         )
@@ -739,7 +1206,7 @@ fun ImportTabContent(
                 }
             }
         } else {
-            items(items = queueState.items, key = { it.id }) { queueItem ->
+            items(items = displayQueueItems, key = { it.id }) { queueItem ->
                 QueueItemRow(
                     item = queueItem,
                     onRemove = { queueViewModel.removeDocument(queueItem.id) }
