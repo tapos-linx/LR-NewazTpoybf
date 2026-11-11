@@ -74,6 +74,8 @@ class LandRecordRepository(
 
     suspend fun updateDocument(doc: LandDocumentEntity) = docDao.updateDocument(doc)
 
+    suspend fun updatePage(page: DocumentPageEntity) = pageDao.updatePage(page)
+
     suspend fun deleteDocument(id: String) = withContext(Dispatchers.IO) {
         docDao.deleteDocumentById(id)
         // Cleanup local sandbox files

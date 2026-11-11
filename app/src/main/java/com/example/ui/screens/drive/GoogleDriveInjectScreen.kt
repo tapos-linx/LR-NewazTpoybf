@@ -72,6 +72,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.domain.drive.GoogleDriveManager
 import com.example.domain.saf.DiscoveredFile
 import com.example.ui.components.LegalDisclaimerBanner
 import com.example.ui.theme.StatusVerified
@@ -86,8 +87,9 @@ fun GoogleDriveInjectScreen(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val context = LocalContext.current
     var inputDriveUrl by remember { mutableStateOf("") }
+    val driveAccountUri = remember { GoogleDriveManager.buildDriveAccountRootUri(GoogleDriveManager.DEFAULT_DRIVE_ACCOUNT_EMAIL) }
 
-    // SAF Activity Result Launchers
+    // SAF Activity Result Launchers targeting tapos.cpl@gmail.com
     val masterFolderLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { uri: Uri? ->
@@ -101,14 +103,21 @@ fun GoogleDriveInjectScreen(
     }
 
     val zipPickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument()
-    ) { uri: Uri? ->
-        uri?.let { viewModel.injectZipArchive(it) }
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        result.data?.data?.let { viewModel.injectZipArchive(it) }
     }
 
     val multiFilesLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenMultipleDocuments()
-    ) { uris: List<Uri> ->
+        contract = ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        val data = result.data
+        val uris = mutableListOf<Uri>()
+        data?.clipData?.let { clip ->
+            for (i in 0 until clip.itemCount) {
+                clip.getItemAt(i)?.uri?.let { uris.add(it) }
+            }
+        } ?: data?.data?.let { uris.add(it) }
         if (uris.isNotEmpty()) {
             viewModel.injectFiles(uris)
         }
@@ -268,15 +277,16 @@ fun GoogleDriveInjectScreen(
                                         fontSize = 16.sp
                                     )
                                     Text(
-                                        text = "Direct Google Drive Storage Access Framework & Link Import",
-                                        color = Color.White.copy(alpha = 0.85f),
-                                        fontSize = 11.sp
+                                        text = "সক্রিয় ড্রাইভ অ্যাকাউন্ট: ${GoogleDriveManager.DEFAULT_DRIVE_ACCOUNT_EMAIL}",
+                                        color = Color.White.copy(alpha = 0.95f),
+                                        fontWeight = FontWeight.SemiBold,
+                                        fontSize = 12.sp
                                     )
                                 }
                             }
                             Spacer(modifier = Modifier.height(10.dp))
                             Text(
-                                text = "আপনার গুগল ড্রাইভে থাকা মাস্টার ফোল্ডার (সকল সাব-ফোল্ডারসহ), জিপ আর্কাইভ, একক ফোল্ডার বা একাধিক ফাইল সরাসরি নির্বাচন করে অফলাইন ডেটাবেসে আমদানি ও নিষ্কাশন করুন।",
+                                text = "আপনার গুগল ড্রাইভ (${GoogleDriveManager.DEFAULT_DRIVE_ACCOUNT_EMAIL})-এ থাকা মাস্টার ফোল্ডার (সকল সাব-ফোল্ডারসহ), জিপ আর্কাইভ, একক ফোল্ডার বা একাধিক ফাইল সরাসরি নির্বাচন করে অফলাইন ডেটাবেসে আমদানি ও নিষ্কাশন করুন।",
                                 color = Color.White.copy(alpha = 0.95f),
                                 fontSize = 12.5.sp,
                                 lineHeight = 18.sp
@@ -290,7 +300,7 @@ fun GoogleDriveInjectScreen(
             item {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text(
-                        text = "গুগল ড্রাইভ আমদানি মাধ্যম নির্বাচন করুন:",
+                        text = "গুগল ড্রাইভ আমদানি মাধ্যম নির্বাচন করুন (${GoogleDriveManager.DEFAULT_DRIVE_ACCOUNT_EMAIL}):",
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold
                     )
@@ -303,7 +313,7 @@ fun GoogleDriveInjectScreen(
                         icon = Icons.Default.Folder,
                         containerColor = Color(0xFF0F766E),
                         testTag = "btn_inject_drive_master_folder",
-                        onClick = { masterFolderLauncher.launch(null) }
+                        onClick = { masterFolderLauncher.launch(driveAccountUri) }
                     )
 
                     // 2. A zip folder
@@ -314,7 +324,7 @@ fun GoogleDriveInjectScreen(
                         icon = Icons.Default.FolderZip,
                         containerColor = Color(0xFFD97706),
                         testTag = "btn_inject_drive_zip",
-                        onClick = { zipPickerLauncher.launch(arrayOf("*/*")) }
+                        onClick = { zipPickerLauncher.launch(GoogleDriveManager.createDriveZipPickerIntent()) }
                     )
 
                     // 3. Folders
@@ -325,7 +335,7 @@ fun GoogleDriveInjectScreen(
                         icon = Icons.Default.FolderOpen,
                         containerColor = Color(0xFF2563EB),
                         testTag = "btn_inject_drive_folder",
-                        onClick = { singleFolderLauncher.launch(null) }
+                        onClick = { singleFolderLauncher.launch(driveAccountUri) }
                     )
 
                     // 4. Files
@@ -336,7 +346,7 @@ fun GoogleDriveInjectScreen(
                         icon = Icons.Default.Description,
                         containerColor = Color(0xFF7C3AED),
                         testTag = "btn_inject_drive_files",
-                        onClick = { multiFilesLauncher.launch(arrayOf("*/*")) }
+                        onClick = { multiFilesLauncher.launch(GoogleDriveManager.createDriveMultiFilesPickerIntent()) }
                     )
                 }
             }

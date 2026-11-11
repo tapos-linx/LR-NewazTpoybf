@@ -103,6 +103,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.example.data.local.entity.LandDocumentEntity
 import com.example.data.model.BengaliNumberUtils
+import com.example.domain.drive.GoogleDriveManager
 import com.example.domain.export.ExportFormat
 import com.example.domain.export.ReportExportManager
 import com.example.domain.matcher.EvidenceTier
@@ -163,6 +164,10 @@ fun MainScaffoldScreen(
         }
     }
 
+    val driveAccountUri = remember {
+        GoogleDriveManager.buildDriveAccountRootUri(GoogleDriveManager.DEFAULT_DRIVE_ACCOUNT_EMAIL)
+    }
+
     // SAF directory picker for bulk folder scanning
     val folderPickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
@@ -170,6 +175,20 @@ fun MainScaffoldScreen(
         if (treeUri != null) {
             safViewModel.scanFolderTree(treeUri)
             Toast.makeText(context, "ফোল্ডার স্ক্যান শুরু হয়েছে...", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    // Dedicated Google Drive SAF picker targeting tapos.cpl@gmail.com
+    val drivePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { treeUri: Uri? ->
+        if (treeUri != null) {
+            safViewModel.scanFolderTree(treeUri)
+            Toast.makeText(
+                context,
+                "গুগল ড্রাইভ (${GoogleDriveManager.DEFAULT_DRIVE_ACCOUNT_EMAIL}) স্ক্যান শুরু হয়েছে...",
+                Toast.LENGTH_SHORT
+            ).show()
         }
     }
 
@@ -275,6 +294,14 @@ fun MainScaffoldScreen(
                     onNavigateToCamera = onNavigateToCamera,
                     onLaunchFilePicker = { filePickerLauncher.launch(arrayOf("application/pdf", "image/*")) },
                     onLaunchFolderPicker = { folderPickerLauncher.launch(null) },
+                    onLaunchDrivePicker = {
+                        Toast.makeText(
+                            context,
+                            "গুগল ড্রাইভ খুলছে: ${GoogleDriveManager.DEFAULT_DRIVE_ACCOUNT_EMAIL}",
+                            Toast.LENGTH_SHORT
+                        ).show()
+                        drivePickerLauncher.launch(driveAccountUri)
+                    },
                     queueViewModel = queueViewModel,
                     safViewModel = safViewModel
                 )
@@ -531,6 +558,7 @@ fun ImportTabContent(
     onNavigateToCamera: () -> Unit,
     onLaunchFilePicker: () -> Unit,
     onLaunchFolderPicker: () -> Unit,
+    onLaunchDrivePicker: () -> Unit = onLaunchFolderPicker,
     queueViewModel: ExtractionQueueViewModel,
     safViewModel: SafImportViewModel
 ) {
@@ -594,12 +622,12 @@ fun ImportTabContent(
                     )
                     SourceActionCard(
                         title = "গুগল ড্রাইভ",
-                        subtitle = "ড্রাইভ ফোল্ডার ও জিপ",
+                        subtitle = GoogleDriveManager.DEFAULT_DRIVE_ACCOUNT_EMAIL,
                         icon = Icons.Default.CloudDownload,
                         color = Color(0xFF0F766E),
                         modifier = Modifier.weight(1f),
                         testTag = "card_import_drive",
-                        onClick = onLaunchFolderPicker // Uses SAF tree picker for Drive mounts
+                        onClick = onLaunchDrivePicker
                     )
                 }
             }
@@ -1425,6 +1453,26 @@ fun SettingsDialog(
                     Column(modifier = Modifier.padding(10.dp)) {
                         Text("Gemini AI অপটিক্যাল স্ক্যানার", fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         Text("মডেল: gemini-2.5-flash | Temperature: 0.0\nজিরো-হ্যালুসিনেশন ও হিস্যা অডিট সক্রিয়", fontSize = 11.sp, color = MaterialTheme.colorScheme.outline)
+                    }
+                }
+
+                Card(
+                    modifier = Modifier.fillMaxWidth().testTag("settings_drive_account_card"),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFF0F766E).copy(alpha = 0.12f))
+                ) {
+                    Column(modifier = Modifier.padding(10.dp)) {
+                        Text(
+                            text = "সংযুক্ত গুগল ড্রাইভ অ্যাকাউন্ট",
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = Color(0xFF0F766E)
+                        )
+                        Text(
+                            text = GoogleDriveManager.DEFAULT_DRIVE_ACCOUNT_EMAIL,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
                     }
                 }
 

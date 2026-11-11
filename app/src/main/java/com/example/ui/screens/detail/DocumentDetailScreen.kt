@@ -327,6 +327,15 @@ fun DocumentDetailScreen(
                         onCopyText = { text ->
                             clipboardManager.setText(AnnotatedString(text))
                             Toast.makeText(context, "OCR লেখা কপি হয়েছে", Toast.LENGTH_SHORT).show()
+                        },
+                        onSaveOcrText = { pageIndex, newText ->
+                            viewModel.updateRawOcrText(pageIndex, newText)
+                            Toast.makeText(context, "OCR পাঠ সংরক্ষিত হয়েছে", Toast.LENGTH_SHORT).show()
+                        },
+                        onReparseOcr = { pageIndex, newText ->
+                            viewModel.updateRawOcrText(pageIndex, newText)
+                            viewModel.reparseFromEditedOcr(pageIndex, newText)
+                            Toast.makeText(context, "সংশোধিত OCR থেকে তথ্য পুনরায় বিশ্লেষণ করা হয়েছে", Toast.LENGTH_SHORT).show()
                         }
                     )
                 }
@@ -833,10 +842,15 @@ private fun EditableFieldRow(
 @Composable
 private fun RawOcrTab(
     uiState: DocumentDetailUiState,
-    onCopyText: (String) -> Unit
+    onCopyText: (String) -> Unit,
+    onSaveOcrText: (Int, String) -> Unit = { _, _ -> },
+    onReparseOcr: (Int, String) -> Unit = { _, _ -> }
 ) {
     val pages = uiState.pages
     val selectedPage = pages.getOrNull(uiState.selectedPageIndex) ?: pages.firstOrNull()
+    var editableOcrText by remember(selectedPage?.id, selectedPage?.rawOcrText) {
+        mutableStateOf(selectedPage?.rawOcrText ?: "")
+    }
 
     Column(
         modifier = Modifier
@@ -849,51 +863,75 @@ private fun RawOcrTab(
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
                 shape = RoundedCornerShape(10.dp)
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = "OCR নির্ভুলতার মান: ${selectedPage.ocrConfidence.toInt()}%",
-                            style = MaterialTheme.typography.titleSmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Text(
-                            text = "ভাষা: ${selectedPage.ocrLanguage} • সময়কাল: ${selectedPage.ocrDurationMs}ms",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
+                Column(modifier = Modifier.padding(12.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "OCR নির্ভুলতার মান: ${selectedPage.ocrConfidence.toInt()}%",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = "ভাষা: ${selectedPage.ocrLanguage} • সময়কাল: ${selectedPage.ocrDurationMs}ms",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+
+                        Button(
+                            onClick = { onCopyText(editableOcrText) },
+                            contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                            modifier = Modifier.testTag("btn_copy_ocr_text")
+                        ) {
+                            Text("কপি করুন", fontSize = 12.sp)
+                        }
                     }
 
-                    Button(
-                        onClick = { onCopyText(selectedPage.rawOcrText) },
-                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 6.dp)
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("কপি করুন", fontSize = 12.sp)
+                        OutlinedButton(
+                            onClick = { onSaveOcrText(uiState.selectedPageIndex, editableOcrText) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("btn_save_ocr_text")
+                        ) {
+                            Text("OCR সংরক্ষণ করুন", fontSize = 12.sp)
+                        }
+                        Button(
+                            onClick = { onReparseOcr(uiState.selectedPageIndex, editableOcrText) },
+                            modifier = Modifier
+                                .weight(1f)
+                                .testTag("btn_reparse_ocr_text")
+                        ) {
+                            Text("পুনরায় তথ্য নিষ্কাশন", fontSize = 12.sp)
+                        }
                     }
                 }
             }
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(10.dp),
-                color = MaterialTheme.colorScheme.surface,
-                shadowElevation = 2.dp
-            ) {
-                Text(
-                    text = selectedPage.rawOcrText,
-                    style = MaterialTheme.typography.bodyMedium,
+            OutlinedTextField(
+                value = editableOcrText,
+                onValueChange = { editableOcrText = it },
+                label = { Text("নিষ্কাশিত OCR পাঠ (সম্পাদনাযোগ্য)") },
+                textStyle = MaterialTheme.typography.bodyMedium.copy(
                     fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
-                    modifier = Modifier.padding(14.dp),
                     lineHeight = 22.sp
-                )
-            }
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(380.dp)
+                    .testTag("editable_ocr_text_field")
+            )
         } else {
             Text("কোনো OCR পাঠ পাওয়া যায়নি")
         }

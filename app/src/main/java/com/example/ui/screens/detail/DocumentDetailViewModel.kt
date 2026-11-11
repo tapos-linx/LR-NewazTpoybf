@@ -13,6 +13,7 @@ import com.example.data.model.OwnerRecord
 import com.example.data.repository.LandRecordRepository
 import com.example.domain.export.ExportFormat
 import com.example.domain.export.ReportExportManager
+import com.example.domain.parser.BangladeshLandRecordParser
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -115,6 +116,30 @@ class DocumentDetailViewModel(
         }
         val updatedData = _uiState.value.recordData.copy(owners = currentOwners)
         saveUpdatedRecordData(updatedData)
+    }
+
+    fun updateRawOcrText(pageIndex: Int, newText: String) {
+        val currentPages = _uiState.value.pages.toMutableList()
+        val page = currentPages.getOrNull(pageIndex) ?: return
+        val updatedPage = page.copy(rawOcrText = newText)
+        currentPages[pageIndex] = updatedPage
+        _uiState.value = _uiState.value.copy(pages = currentPages)
+        viewModelScope.launch {
+            repository.updatePage(updatedPage)
+        }
+    }
+
+    fun reparseFromEditedOcr(pageIndex: Int, text: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(isSaving = true)
+            val currentDoc = _uiState.value.document ?: return@launch
+            val parsed = BangladeshLandRecordParser.parse(
+                rawOcrText = text,
+                filenameHint = currentDoc.sourceFileName,
+                pageIndex = pageIndex + 1
+            )
+            saveUpdatedRecordData(parsed)
+        }
     }
 
     fun markDocumentVerified() {

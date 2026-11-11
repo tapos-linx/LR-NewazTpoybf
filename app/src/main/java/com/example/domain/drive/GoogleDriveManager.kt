@@ -1,6 +1,8 @@
 package com.example.domain.drive
 
 import android.content.Intent
+import android.net.Uri
+import android.provider.DocumentsContract
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -190,11 +192,24 @@ object GoogleDriveManager {
         outputFile
     }
 
+    const val DEFAULT_DRIVE_ACCOUNT_EMAIL = "tapos.cpl@gmail.com"
+    private const val DRIVE_DOCUMENTS_AUTHORITY = "com.google.android.apps.docs.storage"
+
+    /**
+     * Builds the Storage Access Framework root URI for a specific Google Drive account
+     * so the Android document/folder picker opens directly into that account's Drive.
+     */
+    fun buildDriveAccountRootUri(accountEmail: String = DEFAULT_DRIVE_ACCOUNT_EMAIL): Uri {
+        val cleanEmail = accountEmail.trim().ifBlank { DEFAULT_DRIVE_ACCOUNT_EMAIL }
+        return Uri.parse("content://$DRIVE_DOCUMENTS_AUTHORITY/root/${Uri.encode(cleanEmail)}")
+    }
+
     /**
      * Intent for selecting a Master Google Drive Folder or subfolder via Storage Access Framework.
-     * Supports authenticated private Google Drive accounts signed in on the Android device.
+     * Automatically targets the configured Google Drive account (`tapos.cpl@gmail.com`).
      */
-    fun createDriveFolderTreeIntent(): Intent {
+    fun createDriveFolderTreeIntent(accountEmail: String = DEFAULT_DRIVE_ACCOUNT_EMAIL): Intent {
+        val initialUri = buildDriveAccountRootUri(accountEmail)
         return Intent(Intent.ACTION_OPEN_DOCUMENT_TREE).apply {
             addFlags(
                 Intent.FLAG_GRANT_READ_URI_PERMISSION or
@@ -202,13 +217,17 @@ object GoogleDriveManager {
                     Intent.FLAG_GRANT_PREFIX_URI_PERMISSION
             )
             putExtra("android.content.extra.SHOW_ADVANCED", true)
+            putExtra(DocumentsContract.EXTRA_INITIAL_URI, initialUri)
+            putExtra("authAccount", accountEmail)
         }
     }
 
     /**
      * Intent for selecting a ZIP archive from Google Drive via Storage Access Framework.
+     * Automatically targets the configured Google Drive account (`tapos.cpl@gmail.com`).
      */
-    fun createDriveZipPickerIntent(): Intent {
+    fun createDriveZipPickerIntent(accountEmail: String = DEFAULT_DRIVE_ACCOUNT_EMAIL): Intent {
+        val initialUri = buildDriveAccountRootUri(accountEmail)
         return Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "*/*"
@@ -221,14 +240,19 @@ object GoogleDriveManager {
                     "application/octet-stream"
                 )
             )
+            putExtra("android.content.extra.SHOW_ADVANCED", true)
+            putExtra(DocumentsContract.EXTRA_INITIAL_URI, initialUri)
+            putExtra("authAccount", accountEmail)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
     }
 
     /**
      * Intent for multi-file selection directly from Google Drive via Storage Access Framework.
+     * Automatically targets the configured Google Drive account (`tapos.cpl@gmail.com`).
      */
-    fun createDriveMultiFilesPickerIntent(): Intent {
+    fun createDriveMultiFilesPickerIntent(accountEmail: String = DEFAULT_DRIVE_ACCOUNT_EMAIL): Intent {
+        val initialUri = buildDriveAccountRootUri(accountEmail)
         return Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
             addCategory(Intent.CATEGORY_OPENABLE)
             type = "*/*"
@@ -246,7 +270,23 @@ object GoogleDriveManager {
                     "text/plain"
                 )
             )
+            putExtra("android.content.extra.SHOW_ADVANCED", true)
+            putExtra(DocumentsContract.EXTRA_INITIAL_URI, initialUri)
+            putExtra("authAccount", accountEmail)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    }
+
+    /**
+     * Launches the Google Drive app or browser directly for the specified account email.
+     */
+    fun createOpenGoogleDriveAccountIntent(accountEmail: String = DEFAULT_DRIVE_ACCOUNT_EMAIL): Intent {
+        val cleanEmail = accountEmail.trim().ifBlank { DEFAULT_DRIVE_ACCOUNT_EMAIL }
+        return Intent(
+            Intent.ACTION_VIEW,
+            Uri.parse("https://drive.google.com/drive/u/0/my-drive?authuser=${Uri.encode(cleanEmail)}")
+        ).apply {
+            putExtra("authAccount", cleanEmail)
         }
     }
 }
