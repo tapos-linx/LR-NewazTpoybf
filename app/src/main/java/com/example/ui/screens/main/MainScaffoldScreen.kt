@@ -116,6 +116,7 @@ import com.example.ui.components.LegalDisclaimerBanner
 import com.example.ui.screens.atlas.AtlasTimelineScreen
 import com.example.ui.screens.home.HomeViewModel
 import com.example.ui.screens.home.components.CapturedRecordCard
+import com.example.ui.screens.importcenter.ImportCenter
 import com.example.ui.screens.matcher.WarishMatcherScreen
 import com.example.ui.screens.matcher.WarishMatcherViewModel
 import com.example.ui.screens.queue.ExtractionQueueItem
@@ -684,6 +685,55 @@ fun ImportTabContent(
                 text = "লোকাল ডিস্ক, ফোল্ডার, জিপ আর্কাইভ (.zip), গুগল ড্রাইভ এবং পিসি ওয়েব কম্প্যানিয়ন থেকে একযোগে বহুসংখ্যক দলিল আমদানি করুন",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+
+        // Unified Import Center Composable (OpenDocument, OpenDocumentTree, Google Drive, Computer Upload)
+        item {
+            ImportCenter(
+                onDocumentSelected = { uri ->
+                    safViewModel.scanMultipleFiles(
+                        uris = listOf(uri),
+                        sourceCategory = "লোকাল_ফাইল_ইমপোর্ট_সেন্টার"
+                    ) { discoveredFiles ->
+                        queueViewModel.addDiscoveredFilesToQueue(
+                            discoveredFiles,
+                            autoStart = true
+                        )
+                    }
+                },
+                onFolderSelected = { treeUri ->
+                    safViewModel.scanFolderTree(
+                        treeUri = treeUri,
+                        sourceLabel = "লোকাল ফোল্ডার (SAF)"
+                    ) { discoveredFiles ->
+                        queueViewModel.addDiscoveredFilesToQueue(
+                            discoveredFiles,
+                            autoStart = true
+                        )
+                    }
+                },
+                onGoogleDriveRequested = {
+                    onLaunchDrivePicker()
+                },
+                onComputerUploadSubmitted = { reference ->
+                    if (reference.startsWith("http://") || reference.startsWith("https://")) {
+                        desktopServerUrlInput = reference
+                        safViewModel.createDesktopPairing(reference)
+                    } else {
+                        desktopPairingTokenInput = reference
+                        safViewModel.syncDesktopCompanionFiles(
+                            backendBaseUrl = desktopServerUrlInput,
+                            pairingToken = reference
+                        ) { discoveredFiles ->
+                            queueViewModel.addDiscoveredFilesToQueue(
+                                discoveredFiles,
+                                sourceType = com.example.data.local.entity.DocumentSourceType.DESKTOP_COMPANION,
+                                autoStart = true
+                            )
+                        }
+                    }
+                }
             )
         }
 
